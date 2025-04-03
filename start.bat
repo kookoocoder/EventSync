@@ -1,0 +1,9 @@
+@echo off
+echo Installing dependencies...
+npm install
+
+echo Generating Prisma client...
+npx prisma generate
+
+echo Starting development server...
+npm run dev 
