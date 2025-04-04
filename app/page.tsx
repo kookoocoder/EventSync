@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ArrowRight, Calendar, MapPin, Users } from "lucide-react"
+import { createClient } from '@supabase/supabase-js'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +9,33 @@ import { HeroSection } from "@/components/hero-section"
 import { MainNav } from "@/components/main-nav"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Create anonymous client for server-side usage
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false, // Don't persist on server
+        autoRefreshToken: false,
+      }
+    }
+  )
+
+  // This will check for cookies automatically via middleware
+  const { data, error } = await supabase.auth.getSession()
+  
+  // For debugging
+  if (error) {
+    console.error("Home page auth error:", error.message)
+  }
+  
+  const user = data?.session?.user
+  console.log("Home page auth state:", user ? "Authenticated" : "Not authenticated")
+  
+  const userType = user?.user_metadata?.userType
+  const dashboardPath = userType === 'organizer' ? '/organizer/dashboard' : '/participant/dashboard'
+
   // Mock data for hackathons
   const upcomingHackathons = [
     {
@@ -94,14 +121,24 @@ export default function HomePage() {
             <div className="hidden md:block">
               <ThemeToggle />
             </div>
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Log in
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Register</Button>
-            </Link>
+            
+            {/* Conditional Auth Buttons */} 
+            {user ? (
+              <Link href={dashboardPath}>
+                <Button size="sm">Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm">
+                    Log in
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm">Register</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

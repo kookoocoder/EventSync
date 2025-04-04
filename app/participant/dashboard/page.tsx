@@ -2,6 +2,11 @@
 
 import Link from "next/link"
 import { Calendar, Clock, Code, ExternalLink, MapPin, MoreHorizontal, Users } from "lucide-react"
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { getBrowserClient } from '@/utils/supabase/browser-client'
+import { useAuth } from '@/components/auth-provider'
+import { debugSupabaseAuth } from '@/utils/supabase/debug-auth'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +14,110 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MainNav } from "@/components/main-nav"
 
-export default function ParticipantDashboard() {
+export default function ParticipantDashboardPage() {
+  const router = useRouter()
+  const { user, isLoading: authLoading, isAuthenticated, signOut } = useAuth()
+  const [participantProfile, setParticipantProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        // Add debug info at the start
+        if (typeof window !== 'undefined') {
+          console.log("==== DASHBOARD PAGE LOAD ====");
+          console.log("Checking for session in localStorage:");
+          try {
+            const sessionStr = localStorage.getItem('supabase.auth.token');
+            console.log("Session exists in localStorage:", !!sessionStr);
+          } catch (e) {
+            console.error("Error checking localStorage:", e);
+          }
+          debugSupabaseAuth();
+        }
+        
+        // If still loading auth or not authenticated, don't fetch profile
+        if (authLoading) {
+          console.log("Auth is still loading, waiting...");
+          return;
+        }
+        
+        if (!isAuthenticated || !user) {
+          console.log("User not authenticated, redirecting to login");
+          router.push('/login');
+          return;
+        }
+        
+        console.log("User authenticated:", user.email);
+        console.log("User metadata:", user.user_metadata);
+        
+        // Check if the user is actually a participant
+        if (user.user_metadata?.userType !== 'participant') {
+          console.warn("User is not a participant, redirecting");
+          if (user.user_metadata?.userType === 'organizer') {
+            router.push('/organizer/dashboard');
+          } else {
+            router.push('/');
+          }
+          return;
+        }
+        
+        // Only fetch profile if authenticated and correct role
+        const supabase = getBrowserClient();
+        
+        // Test session validity with a simple API call
+        const { data: sessionTest, error: sessionError } = await supabase.auth.getUser();
+        if (sessionError) {
+          console.error("Session test failed:", sessionError.message);
+          setError("Session expired. Please login again.");
+          return;
+        }
+        
+        // Proceed with profile fetch
+        const { data: profile, error: profileError } = await supabase
+          .from('participants')
+          .select('name, bio, skills')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Error fetching participant profile:", profileError);
+          if (profileError.code === 'PGRST116') {
+            console.log("Profile not found - might be a new user");
+            setParticipantProfile(null);
+          } else {
+            setError("Failed to load profile data");
+          }
+        } else {
+          console.log("Profile data retrieved");
+          setParticipantProfile(profile);
+        }
+      } catch (err) {
+        console.error("Dashboard error:", err);
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, [authLoading, isAuthenticated, user, router]);
+
+  // Handle loading states
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading dashboard...</p>
+      </div>
+    );
+  }
+  
+  // Redirect if not authenticated (handled in useEffect)
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
   // Mock data for participant's hackathons
   const registeredHackathons = [
     {
@@ -84,65 +192,92 @@ export default function ParticipantDashboard() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1">
-                  <span className="hidden sm:inline-block">Jane Participant</span>
+                  <span className="hidden sm:inline-block">{user?.user_metadata?.name || "User"}</span>
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                    JP
+                    {user?.user_metadata?.name?.[0]?.toUpperCase() || "U"}
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>Profile</DropdownMenuItem>
                 <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => signOut()}>Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </header>
+      
+      {/* Main content */}
       <main className="flex-1">
-        <div className="container py-8">
-          <div className="flex flex-col gap-8">
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold tracking-tight">Participant Dashboard</h1>
-              <Link href="/hackathons">
-                <Button>Find Hackathons</Button>
-              </Link>
+        {error ? (
+          <div className="container py-8">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700 mb-6">
+              <p>{error}</p>
+              <div className="mt-4 flex gap-2">
+                <Button onClick={() => signOut()} variant="outline">
+                  Sign Out
+                </Button>
+                <Button onClick={() => window.location.reload()}>
+                  Reload Page
+                </Button>
+              </div>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {stats.map((stat, index) => (
-                <Card key={index}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between space-y-0">
-                      <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                      <stat.icon className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-3xl font-bold">{stat.value}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <Tabs defaultValue="registered" className="w-full">
-              <TabsList>
-                <TabsTrigger value="registered">Registered Hackathons</TabsTrigger>
-                <TabsTrigger value="completed">Completed Hackathons</TabsTrigger>
-              </TabsList>
-              <TabsContent value="registered" className="space-y-4 pt-4">
-                {registeredHackathons.map((hackathon) => (
-                  <HackathonCard key={hackathon.id} hackathon={hackathon} />
-                ))}
-              </TabsContent>
-              <TabsContent value="completed" className="space-y-4 pt-4">
-                {completedHackathons.map((hackathon) => (
-                  <HackathonCard key={hackathon.id} hackathon={hackathon} isCompleted />
-                ))}
-              </TabsContent>
-            </Tabs>
           </div>
-        </div>
+        ) : (
+          <div className="container py-8">
+            <div className="flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold tracking-tight">Participant Dashboard</h1>
+                <Link href="/hackathons">
+                  <Button>Find Hackathons</Button>
+                </Link>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {stats.map((stat, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between space-y-0">
+                        <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                        <stat.icon className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-3xl font-bold">{stat.value}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <Tabs defaultValue="registered" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="registered">Registered Hackathons</TabsTrigger>
+                  <TabsTrigger value="completed">Completed Hackathons</TabsTrigger>
+                </TabsList>
+                <TabsContent value="registered" className="space-y-4 pt-4">
+                  {registeredHackathons.map((hackathon) => (
+                    <HackathonCard key={hackathon.id} hackathon={hackathon} />
+                  ))}
+                </TabsContent>
+                <TabsContent value="completed" className="space-y-4 pt-4">
+                  {completedHackathons.map((hackathon) => (
+                    <HackathonCard key={hackathon.id} hackathon={hackathon} isCompleted />
+                  ))}
+                </TabsContent>
+              </Tabs>
+
+              {/* Display profile info if fetched */} 
+              {participantProfile && (
+                  <div className="mt-6 p-4 border rounded-lg">
+                      <h2 className="text-xl font-semibold mb-2">Your Profile</h2>
+                      {participantProfile.bio && <p className="mb-2">Bio: {participantProfile.bio}</p>}
+                      {participantProfile.skills && <p>Skills: {participantProfile.skills.join(', ')}</p>}
+                  </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

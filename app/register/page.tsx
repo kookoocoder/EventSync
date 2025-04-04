@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useSearchParams } from 'next/navigation'
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { registerUser } from "./actions"
 import { 
   Card, 
   CardContent, 
@@ -90,10 +92,22 @@ type FormData = z.infer<typeof organizerSchema>;
 export default function RegisterPage() {
   const [activeStep, setActiveStep] = useState<"user" | "organizer">("user")
   const [userType, setUserType] = useState<"participant" | "organizer">("participant")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const searchParams = useSearchParams()
 
-  // Initialize form with the combined type
+  // Use a separate state to track form submission
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      setErrorMessage(decodeURIComponent(errorParam));
+    }
+  }, [searchParams]);
+
   const form = useForm<FormData>({
-    resolver: zodResolver(userType === "organizer" ? organizerSchema : participantSchema) as any, // Use type assertion for resolver
+    // Use organizerSchema for type purposes, but we'll handle validation manually
+    resolver: zodResolver(organizerSchema) as any, // Type assertion to avoid TS errors
     defaultValues: {
       name: "",
       email: "",
@@ -105,37 +119,104 @@ export default function RegisterPage() {
       organizationWebsite: "",
       organizationDescription: "",
     },
-  })
-
-  // Watch for user type changes
-  const watchUserType = form.watch("userType")
+    mode: 'onChange',
+  });
   
-  // Update form schema and active step when user type changes
-  const handleUserTypeChange = (value: "participant" | "organizer") => {
-    setUserType(value)
-    form.setValue("userType", value)
-    
-    if (value === "organizer") {
-      form.clearErrors()
-    }
-  }
+  // Remove errors from formState destructuring since we're using manual validation
+  const { isSubmitting } = form.formState; // Not used, but keep for reference
 
-  const onSubmit = async (data: FormData) => {
-    if (userType === "organizer" && activeStep === "user") {
-      // Only validate user fields and move to organizer step
-      const isValid = await form.trigger(["name", "email", "password", "confirmPassword", "userType"])
-      if (isValid) {
-        setActiveStep("organizer")
-        return
+  const handleUserTypeChange = (value: "participant" | "organizer") => {
+    setUserType(value);
+    form.reset({
+        ...form.getValues(),
+        userType: value,
+        organizationName: value === 'participant' ? '' : form.getValues('organizationName'),
+        organizationAddress: value === 'participant' ? '' : form.getValues('organizationAddress'),
+        organizationWebsite: value === 'participant' ? '' : form.getValues('organizationWebsite'),
+        organizationDescription: value === 'participant' ? '' : form.getValues('organizationDescription'),
+    });
+    setActiveStep('user');
+    setErrorMessage(null);
+  };
+
+  const watchUserType = form.watch("userType");
+
+  // Create a direct submission handler that bypasses RHF's handleSubmit
+  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // Prevent default form submission
+    
+    console.log("Manual submit handler called");
+    setErrorMessage(null);
+    setIsFormSubmitting(true);
+    
+    try {
+      // For organizer on first step, validate and move to next step
+      if (watchUserType === "organizer" && activeStep === "user") {
+        console.log("Organizer step 1: Validating first step fields");
+        const firstStepFields = ["name", "email", "password", "confirmPassword"];
+        const isValid = await form.trigger(firstStepFields as any);
+        
+        // Also check password match manually
+        const values = form.getValues();
+        const passwordsMatch = values.password === values.confirmPassword;
+        
+        if (isValid && passwordsMatch) {
+          console.log("First step validation passed, moving to organizer step");
+          setActiveStep("organizer");
+        } else {
+          console.log("First step validation failed:", form.formState.errors);
+          if (!passwordsMatch) {
+            form.setError("confirmPassword", { 
+              type: "manual", 
+              message: "Passwords do not match" 
+            });
+          }
+          setErrorMessage("Please fix the errors in the form.");
+        }
+      } 
+      // For final submission (participant or organizer step 2)
+      else {
+        console.log("Submitting form data:", form.getValues());
+        
+        // Validate manually based on user type
+        let isValid: boolean;
+        
+        if (watchUserType === "participant") {
+          // For participants, only validate participant fields
+          isValid = await form.trigger([
+            "name", "email", "password", "confirmPassword", "userType"
+          ] as any);
+          
+          // Check password match
+          const values = form.getValues();
+          if (values.password !== values.confirmPassword) {
+            form.setError("confirmPassword", {
+              type: "manual", 
+              message: "Passwords do not match"
+            });
+            isValid = false;
+          }
+        } else {
+          // For organizers on step 2, validate all fields
+          isValid = await form.trigger();
+        }
+        
+        if (isValid) {
+          const data = form.getValues();
+          console.log("Sending to server action:", data);
+          
+          await registerUser(data);
+        } else {
+          console.log("Validation failed:", form.formState.errors);
+          setErrorMessage("Please fix the errors in the form.");
+        }
       }
-    } else {
-      // Submit the form to Supabase
-      console.log("Form submitted:", data)
-      // Here you would typically call your Supabase registration function
-      alert("Registration successful! Redirecting to login...")
-      // Then redirect to login page
+    } catch (error: any) {
+      console.error("Error during form processing:", error);
+      setErrorMessage(error.message || "An unexpected error occurred");
+      setIsFormSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -150,7 +231,7 @@ export default function RegisterPage() {
           <CardContent>
             <Tabs value={activeStep} className="w-full">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={handleManualSubmit} className="space-y-4">
                   <TabsContent value="user">
                     <div className="space-y-4">
                       <FormField
@@ -216,11 +297,9 @@ export default function RegisterPage() {
                           <FormItem>
                             <FormLabel>I want to</FormLabel>
                             <Select 
-                              onValueChange={(value: "participant" | "organizer") => {
-                                field.onChange(value)
-                                handleUserTypeChange(value)
-                              }}
-                              defaultValue={field.value}
+                              onValueChange={handleUserTypeChange}
+                              value={field.value}
+                              disabled={isFormSubmitting}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -239,8 +318,16 @@ export default function RegisterPage() {
                     </div>
                     
                     <div className="pt-6">
-                      <Button type="submit" className="w-full">
-                        {watchUserType === "organizer" ? "Next" : "Create Account"}
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={isFormSubmitting}
+                      >
+                        {isFormSubmitting 
+                          ? "Processing..." 
+                          : (watchUserType === "organizer") 
+                            ? "Next" 
+                            : "Create Account"}
                       </Button>
                     </div>
                   </TabsContent>
@@ -314,21 +401,29 @@ export default function RegisterPage() {
                     
                     <div className="pt-6 flex gap-3">
                       <Button 
-                        type="button" 
+                        type="button"
                         variant="outline" 
                         className="flex-1"
                         onClick={() => setActiveStep("user")}
+                        disabled={isFormSubmitting}
                       >
                         Back
                       </Button>
-                      <Button type="submit" className="flex-1">
-                        Create Account
+                      <Button 
+                        type="submit" 
+                        className="flex-1" 
+                        disabled={isFormSubmitting}
+                      >
+                        {isFormSubmitting ? "Processing..." : "Create Account"}
                       </Button>
                     </div>
                   </TabsContent>
                 </form>
               </Form>
             </Tabs>
+            {errorMessage && (
+              <p className="text-sm font-medium text-destructive pt-4 text-center">{errorMessage}</p>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-2">
             <div className="text-sm text-center">

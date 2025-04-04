@@ -14,6 +14,10 @@ import {
   Trophy,
   Users,
 } from "lucide-react"
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getBrowserClient } from '@/utils/supabase/browser-client'
+import { useAuth } from '@/components/auth-provider'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,7 +25,76 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MainNav } from "@/components/main-nav"
 
-export default function OrganizerDashboard() {
+export default function OrganizerDashboardPage() {
+  const router = useRouter()
+  const { user, isLoading: authLoading, isAuthenticated, signOut } = useAuth()
+  const [organizerProfile, setOrganizerProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        // If still loading auth or not authenticated, don't fetch profile
+        if (authLoading) return;
+        
+        if (!isAuthenticated || !user) {
+          console.log("User not authenticated, redirecting to login");
+          router.push('/login');
+          return;
+        }
+        
+        // Check if the user is actually an organizer
+        if (user.user_metadata?.userType !== 'organizer') {
+          console.warn("User is not an organizer, redirecting");
+          if (user.user_metadata?.userType === 'participant') {
+            router.push('/participant/dashboard');
+          } else {
+            router.push('/');
+          }
+          return;
+        }
+        
+        // Only fetch profile if authenticated and correct role
+        const supabase = getBrowserClient();
+        const { data: profile, error: profileError } = await supabase
+          .from('organizers')
+          .select('name, organization, website')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Error fetching organizer profile:", profileError);
+          setError("Failed to load profile data");
+        } else {
+          console.log("Profile data retrieved");
+          setOrganizerProfile(profile);
+        }
+      } catch (err) {
+        console.error("Dashboard error:", err);
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, [authLoading, isAuthenticated, user, router]);
+
+  // Handle loading states
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading dashboard...</p>
+      </div>
+    );
+  }
+  
+  // Redirect if not authenticated (handled in useEffect)
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
   // Mock data for organizer's hackathons
   const activeHackathons = [
     {
@@ -107,67 +180,88 @@ export default function OrganizerDashboard() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1">
-                  <span className="hidden sm:inline-block">John Organizer</span>
+                  <span className="hidden sm:inline-block">{user?.user_metadata?.name || "Organizer"}</span>
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                    JO
+                    {user?.user_metadata?.name?.[0]?.toUpperCase() || "O"}
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>Profile</DropdownMenuItem>
                 <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => signOut()}>Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </header>
+      
+      {/* Main content */}
       <main className="flex-1">
-        <div className="container py-8">
-          <div className="flex flex-col gap-8">
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold tracking-tight">Organizer Dashboard</h1>
-              <Link href="/organizer/create-event">
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" /> Create Hackathon
-                </Button>
-              </Link>
+        {error ? (
+          <div className="container py-8">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700 mb-6">
+              <p>{error}</p>
+              <Button onClick={() => signOut()} className="mt-4" variant="outline">Sign Out and Try Again</Button>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {stats.map((stat, index) => (
-                <Card key={index}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between space-y-0">
-                      <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                      <stat.icon className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-3xl font-bold">{stat.value}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <Tabs defaultValue="active" className="w-full">
-              <TabsList>
-                <TabsTrigger value="active">Active Hackathons</TabsTrigger>
-                <TabsTrigger value="past">Past Hackathons</TabsTrigger>
-              </TabsList>
-              <TabsContent value="active" className="space-y-4 pt-4">
-                {activeHackathons.map((hackathon) => (
-                  <HackathonCard key={hackathon.id} hackathon={hackathon} />
-                ))}
-              </TabsContent>
-              <TabsContent value="past" className="space-y-4 pt-4">
-                {pastHackathons.map((hackathon) => (
-                  <HackathonCard key={hackathon.id} hackathon={hackathon} isPast />
-                ))}
-              </TabsContent>
-            </Tabs>
           </div>
-        </div>
+        ) : (
+          <div className="container py-8">
+            <div className="flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold tracking-tight">Organizer Dashboard</h1>
+                <Link href="/organizer/hackathons/create">
+                  <Button className="gap-1">
+                    <Plus className="h-4 w-4" />
+                    Create Hackathon
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {stats.map((stat, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between space-y-0">
+                        <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                        <stat.icon className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-3xl font-bold">{stat.value}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <Tabs defaultValue="active" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="active">Active Hackathons</TabsTrigger>
+                  <TabsTrigger value="past">Past Hackathons</TabsTrigger>
+                </TabsList>
+                <TabsContent value="active" className="space-y-4 pt-4">
+                  {activeHackathons.map((hackathon) => (
+                    <HackathonCard key={hackathon.id} hackathon={hackathon} />
+                  ))}
+                </TabsContent>
+                <TabsContent value="past" className="space-y-4 pt-4">
+                  {pastHackathons.map((hackathon) => (
+                    <HackathonCard key={hackathon.id} hackathon={hackathon} isPast />
+                  ))}
+                </TabsContent>
+              </Tabs>
+
+              {/* Display profile info if fetched */} 
+              {organizerProfile && (
+                  <div className="mt-6 p-4 border rounded-lg">
+                      <h2 className="text-xl font-semibold mb-2">Your Organization</h2>
+                      {organizerProfile.organization && <p className="mb-2">Organization: {organizerProfile.organization}</p>}
+                      {organizerProfile.website && <p>Website: {organizerProfile.website}</p>}
+                  </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

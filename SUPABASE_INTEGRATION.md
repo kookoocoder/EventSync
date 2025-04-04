@@ -641,3 +641,5 @@ Remember to:
 - Keep your API keys secure and never expose them in client-side code
 
 For more information, refer to the [Supabase documentation](https://supabase.com/docs). 
+
+
