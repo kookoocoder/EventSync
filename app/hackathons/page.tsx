@@ -1,14 +1,16 @@
 import Link from "next/link"
-import { ArrowRight, Calendar, MapPin, Users } from "lucide-react"
+import { ArrowRight, Calendar, Filter, MapPin, Search, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { HeroSection } from "@/components/hero-section"
+import { Input } from "@/components/ui/input"
 import { MainNav } from "@/components/main-nav"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 
-export default function HomePage() {
+export default function HackathonsPage() {
   // Mock data for hackathons
   const upcomingHackathons = [
     {
@@ -21,6 +23,7 @@ export default function HomePage() {
       participants: 120,
       registrationDeadline: "Apr 30, 2025",
       tags: ["AI", "Machine Learning", "Innovation"],
+      registrationFee: 25,
     },
     {
       id: 2,
@@ -32,6 +35,7 @@ export default function HomePage() {
       participants: 200,
       registrationDeadline: "May 20, 2025",
       tags: ["Blockchain", "Web3", "DeFi"],
+      registrationFee: 15,
     },
     {
       id: 3,
@@ -43,6 +47,7 @@ export default function HomePage() {
       participants: 150,
       registrationDeadline: "Jun 25, 2025",
       tags: ["CleanTech", "Sustainability", "Innovation"],
+      registrationFee: 0,
     },
   ]
 
@@ -57,6 +62,7 @@ export default function HomePage() {
       participants: 85,
       registrationDeadline: "Apr 3, 2025",
       tags: ["Gaming", "Game Development", "Design"],
+      registrationFee: 10,
     },
   ]
 
@@ -71,6 +77,7 @@ export default function HomePage() {
       participants: 175,
       registrationDeadline: "Mar 1, 2025",
       tags: ["Healthcare", "MedTech", "Innovation"],
+      registrationFee: 20,
     },
     {
       id: 6,
@@ -82,6 +89,7 @@ export default function HomePage() {
       participants: 210,
       registrationDeadline: "Feb 5, 2025",
       tags: ["Fintech", "Banking", "Payments"],
+      registrationFee: 30,
     },
   ]
 
@@ -106,11 +114,43 @@ export default function HomePage() {
         </div>
       </header>
       <main className="flex-1">
-        <HeroSection />
-        <section className="container py-12 md:py-16 lg:py-20">
+        <section className="bg-muted py-12 md:py-16">
+          <div className="container">
+            <div className="flex flex-col items-center text-center">
+              <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Discover Hackathons</h1>
+              <p className="mt-4 max-w-[700px] text-muted-foreground md:text-xl">
+                Find the perfect hackathon to showcase your skills, learn new technologies, and connect with like-minded
+                innovators.
+              </p>
+              <div className="mt-8 flex w-full max-w-md flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input type="search" placeholder="Search hackathons..." className="pl-8" />
+                </div>
+                <Button variant="outline" size="icon" className="shrink-0">
+                  <Filter className="h-4 w-4" />
+                  <span className="sr-only">Filter</span>
+                </Button>
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-[180px] shrink-0">
+                    <SelectValue placeholder="Filter by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Hackathons</SelectItem>
+                    <SelectItem value="online">Online Only</SelectItem>
+                    <SelectItem value="in-person">In-Person Only</SelectItem>
+                    <SelectItem value="free">Free Registration</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="container py-12 md:py-16">
           <Tabs defaultValue="upcoming" className="w-full">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-bold tracking-tight">Explore Hackathons</h2>
+              <h2 className="text-2xl font-bold tracking-tight">Browse Hackathons</h2>
               <TabsList>
                 <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                 <TabsTrigger value="live">Live Now</TabsTrigger>
@@ -173,6 +213,11 @@ function HackathonCard({ hackathon, isLive = false, isPast = false }) {
             Live Now
           </div>
         )}
+        {hackathon.registrationFee === 0 && (
+          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full z-20">
+            Free Entry
+          </div>
+        )}
         <img
           src={hackathon.image || "/placeholder.svg"}
           alt={hackathon.title}
@@ -207,6 +252,14 @@ function HackathonCard({ hackathon, isLive = false, isPast = false }) {
             <Users className="mr-2 h-4 w-4" />
             <span>{hackathon.participants} participants</span>
           </div>
+          {hackathon.registrationFee > 0 && (
+            <div className="flex items-center font-medium">
+              <Badge variant="outline" className="mr-2">
+                ${hackathon.registrationFee}
+              </Badge>
+              <span className="text-xs text-muted-foreground">Registration Fee</span>
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter>
