@@ -17,9 +17,36 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export default function RegistrationsPage({ params }) {
+// Define Participant type
+interface Participant {
+  name: string
+  email: string
+  avatar: string
+  phone: string
+}
+
+// Define Registration type
+interface Registration {
+  id: string
+  participant: Participant
+  registrationDate: string
+  teamName: string | null
+  teamSize: number | null
+  paymentScreenshot: string | null
+  transactionId: string
+  status: "pending" | "approved" | "rejected"
+  approvedDate?: string
+  rejectedDate?: string
+  rejectionReason?: string
+}
+
+export default function RegistrationsPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedRegistration, setSelectedRegistration] = useState(null)
+  const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null)
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
 
@@ -37,7 +64,11 @@ export default function RegistrationsPage({ params }) {
   }
 
   // Mock registrations data
-  const registrations = {
+  const registrations: { 
+    pending: Registration[]; 
+    approved: Registration[]; 
+    rejected: Registration[] 
+  } = {
     pending: [
       {
         id: "reg-1",
@@ -109,7 +140,7 @@ export default function RegistrationsPage({ params }) {
     ],
   }
 
-  const handleViewRegistration = (registration) => {
+  const handleViewRegistration = (registration: Registration) => {
     setSelectedRegistration(registration)
   }
 
@@ -135,7 +166,7 @@ export default function RegistrationsPage({ params }) {
     }, 1000)
   }
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -300,7 +331,7 @@ export default function RegistrationsPage({ params }) {
                       <AvatarFallback>
                         {selectedRegistration.participant.name
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .join("")}
                       </AvatarFallback>
                     </Avatar>
@@ -347,13 +378,13 @@ export default function RegistrationsPage({ params }) {
                         <Badge className="bg-red-500 hover:bg-red-500/80">Rejected</Badge>
                       )}
 
-                      {selectedRegistration.status === "approved" && (
+                      {selectedRegistration.status === "approved" && selectedRegistration.approvedDate && (
                         <p className="mt-1 text-sm text-muted-foreground">
                           Approved on {formatDate(selectedRegistration.approvedDate)}
                         </p>
                       )}
 
-                      {selectedRegistration.status === "rejected" && (
+                      {selectedRegistration.status === "rejected" && selectedRegistration.rejectedDate && (
                         <div className="mt-1">
                           <p className="text-sm text-muted-foreground">
                             Rejected on {formatDate(selectedRegistration.rejectedDate)}
@@ -412,9 +443,14 @@ export default function RegistrationsPage({ params }) {
   )
 }
 
-function RegistrationCard({ registration, onView }) {
+interface RegistrationCardProps {
+  registration: Registration
+  onView: (registration: Registration) => void
+}
+
+function RegistrationCard({ registration, onView }: RegistrationCardProps) {
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onView(registration)}>
       <div className="flex flex-col sm:flex-row">
         <CardContent className="p-6 flex-1">
           <div className="flex items-start justify-between">
@@ -424,7 +460,7 @@ function RegistrationCard({ registration, onView }) {
                 <AvatarFallback>
                   {registration.participant.name
                     .split(" ")
-                    .map((n) => n[0])
+                    .map((n: string) => n[0])
                     .join("")}
                 </AvatarFallback>
               </Avatar>
@@ -460,7 +496,7 @@ function RegistrationCard({ registration, onView }) {
           </div>
         </CardContent>
         <div className="flex items-center justify-end p-4 sm:border-l">
-          <Button variant="outline" size="sm" onClick={() => onView(registration)}>
+          <Button variant="outline" size="sm">
             <Eye className="mr-2 h-4 w-4" />
             View Details
           </Button>

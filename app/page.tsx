@@ -12,7 +12,7 @@ export default function HomePage() {
   // Mock data for hackathons
   const upcomingHackathons = [
     {
-      id: 1,
+      id: "1",
       title: "AI Innovation Challenge",
       description: "Build the next generation of AI-powered applications",
       image: "/placeholder.svg?height=400&width=600",
@@ -23,7 +23,7 @@ export default function HomePage() {
       tags: ["AI", "Machine Learning", "Innovation"],
     },
     {
-      id: 2,
+      id: "2",
       title: "Web3 Hackathon",
       description: "Create decentralized applications that shape the future",
       image: "/placeholder.svg?height=400&width=600",
@@ -34,7 +34,7 @@ export default function HomePage() {
       tags: ["Blockchain", "Web3", "DeFi"],
     },
     {
-      id: 3,
+      id: "3",
       title: "Climate Tech Challenge",
       description: "Develop solutions to combat climate change",
       image: "/placeholder.svg?height=400&width=600",
@@ -48,7 +48,7 @@ export default function HomePage() {
 
   const liveHackathons = [
     {
-      id: 4,
+      id: "4",
       title: "GameDev Jam",
       description: "Create an innovative game in 48 hours",
       image: "/placeholder.svg?height=400&width=600",
@@ -62,7 +62,7 @@ export default function HomePage() {
 
   const pastHackathons = [
     {
-      id: 5,
+      id: "5",
       title: "Health Tech Summit",
       description: "Revolutionize healthcare with technology",
       image: "/placeholder.svg?height=400&width=600",
@@ -73,7 +73,7 @@ export default function HomePage() {
       tags: ["Healthcare", "MedTech", "Innovation"],
     },
     {
-      id: 6,
+      id: "6",
       title: "Fintech Disrupt",
       description: "Reimagine financial services for the digital age",
       image: "/placeholder.svg?height=400&width=600",
@@ -163,7 +163,23 @@ export default function HomePage() {
   )
 }
 
-function HackathonCard({ hackathon, isLive = false, isPast = false }) {
+// Define the type for the hackathon prop
+interface Hackathon {
+  id: string
+  title: string
+  description: string
+  image?: string
+  date: string
+  location: string
+  participants: number | string
+  tags: string[]
+}
+
+function HackathonCard({ hackathon, isLive = false, isPast = false }: {
+  hackathon: Hackathon // Apply the type here
+  isLive?: boolean
+  isPast?: boolean
+}) {
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <div className="aspect-video relative overflow-hidden">
@@ -179,7 +195,7 @@ function HackathonCard({ hackathon, isLive = false, isPast = false }) {
           className="w-full h-full object-cover transition-transform hover:scale-105"
         />
         <div className="absolute bottom-3 left-3 z-10">
-          {hackathon.tags.map((tag) => (
+          {hackathon.tags.map((tag: string) => ( // Add type here
             <span
               key={tag}
               className="inline-block bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full mr-2"

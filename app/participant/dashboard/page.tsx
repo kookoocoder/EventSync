@@ -13,7 +13,7 @@ export default function ParticipantDashboard() {
   // Mock data for participant's hackathons
   const registeredHackathons = [
     {
-      id: 1,
+      id: "1",
       title: "AI Innovation Challenge",
       description: "Build the next generation of AI-powered applications",
       image: "/placeholder.svg?height=400&width=600",
@@ -24,7 +24,7 @@ export default function ParticipantDashboard() {
       teamMembers: 4,
     },
     {
-      id: 2,
+      id: "2",
       title: "Web3 Hackathon",
       description: "Create decentralized applications that shape the future",
       image: "/placeholder.svg?height=400&width=600",
@@ -38,7 +38,7 @@ export default function ParticipantDashboard() {
 
   const completedHackathons = [
     {
-      id: 3,
+      id: "3",
       title: "Mobile App Challenge",
       description: "Design innovative mobile applications",
       image: "/placeholder.svg?height=400&width=600",
@@ -148,7 +148,24 @@ export default function ParticipantDashboard() {
   )
 }
 
-function HackathonCard({ hackathon, isCompleted = false }) {
+// Define the type for the hackathon prop
+interface ParticipantHackathon {
+  id: string
+  title: string
+  description: string
+  image?: string
+  date: string
+  location: string
+  status: string
+  teamName?: string | null
+  teamMembers?: number | string | null
+  result?: string | null
+}
+
+function HackathonCard({ hackathon, isCompleted = false }: {
+  hackathon: ParticipantHackathon // Apply the type here
+  isCompleted?: boolean
+}) {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col md:flex-row">

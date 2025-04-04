@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type FormEvent, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users } from "lucide-react"
@@ -16,12 +16,16 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export default function HackathonRegistrationPage({ params }) {
+export default function HackathonRegistrationPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentComplete, setPaymentComplete] = useState(false)
-  const [paymentScreenshot, setPaymentScreenshot] = useState(null)
+  const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null)
 
   // Mock hackathon data - in a real app, you would fetch this based on the ID
   const hackathon = {
@@ -48,7 +52,7 @@ export default function HackathonRegistrationPage({ params }) {
     window.scrollTo(0, 0)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSubmitting(true)
 
@@ -59,12 +63,14 @@ export default function HackathonRegistrationPage({ params }) {
     }, 1500)
   }
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onload = (e) => {
-        setPaymentScreenshot(e.target.result)
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setPaymentScreenshot(event.target.result as string)
+        }
       }
       reader.readAsDataURL(file)
     }

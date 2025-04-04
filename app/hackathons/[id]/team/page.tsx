@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 import Link from "next/link"
 import { ArrowLeft, Copy, Mail, Plus, Search, Trash2, UserPlus, X } from "lucide-react"
 
@@ -26,7 +26,11 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 
-export default function TeamManagementPage({ params }) {
+export default function TeamManagementPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
   const [inviteEmail, setInviteEmail] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isInviting, setIsInviting] = useState(false)
@@ -100,7 +104,7 @@ export default function TeamManagementPage({ params }) {
     },
   ]
 
-  const handleInviteMember = (e) => {
+  const handleInviteMember = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsInviting(true)
 
@@ -112,7 +116,7 @@ export default function TeamManagementPage({ params }) {
     }, 1000)
   }
 
-  const handleCreateTeam = (e) => {
+  const handleCreateTeam = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsCreatingTeam(true)
 

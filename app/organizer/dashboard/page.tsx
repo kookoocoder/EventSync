@@ -25,7 +25,7 @@ export default function OrganizerDashboard() {
   // Mock data for organizer's hackathons
   const activeHackathons = [
     {
-      id: 1,
+      id: "1",
       title: "AI Innovation Challenge",
       description: "Build the next generation of AI-powered applications",
       image: "/placeholder.svg?height=400&width=600",
@@ -40,7 +40,7 @@ export default function OrganizerDashboard() {
       status: "Registration Open",
     },
     {
-      id: 2,
+      id: "2",
       title: "Web3 Hackathon",
       description: "Create decentralized applications that shape the future",
       image: "/placeholder.svg?height=400&width=600",
@@ -58,7 +58,7 @@ export default function OrganizerDashboard() {
 
   const pastHackathons = [
     {
-      id: 3,
+      id: "3",
       title: "Mobile App Challenge",
       description: "Design innovative mobile applications",
       image: "/placeholder.svg?height=400&width=600",
@@ -173,7 +173,27 @@ export default function OrganizerDashboard() {
   )
 }
 
-function HackathonCard({ hackathon, isPast = false }) {
+// Define the type for the hackathon prop
+interface OrganizerHackathon {
+  id: string
+  title: string
+  description: string
+  image?: string
+  date: string
+  location: string
+  registrationDeadline: string
+  participants: {
+    registered: number | string
+    approved: number | string
+    pending: number | string
+  }
+  status: string
+}
+
+function HackathonCard({ hackathon, isPast = false }: {
+  hackathon: OrganizerHackathon // Apply the type here
+  isPast?: boolean
+}) {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col md:flex-row">
