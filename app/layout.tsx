@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "EventSync",
-  description: "Connect, collaborate, and compete in hackathons",
+  description: "Connect, collaborate, and compete in events",
 }
 
 export default function RootLayout({

@@ -8,17 +8,17 @@ export function MainNav() {
     <div className="flex items-center gap-6 md:gap-10">
       <Link href="/" className="flex items-center space-x-2">
         <Code className="h-6 w-6" />
-        <span className="font-bold inline-block">HackSync</span>
+        <span className="font-bold inline-block">EventSync</span>
       </Link>
       <nav className="hidden md:flex gap-6">
         <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
           Home
         </Link>
         <Link
-          href="/hackathons"
+          href="/events"
           className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
         >
-          Hackathons
+          Events
         </Link>
         <Link href="/about" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
           About
@@ -30,7 +30,7 @@ export function MainNav() {
           Contact
         </Link>
       </nav>
-      <div className="ml-auto md:hidden">
+      <div className="md:hidden">
         <ThemeToggle />
       </div>
     </div>

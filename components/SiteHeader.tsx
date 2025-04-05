@@ -21,7 +21,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container pl-4 pr-8 mx-auto max-w-7xl flex h-16 items-center justify-between">
         <MainNav />
         <div className="flex items-center gap-4">
           <div className="hidden md:block">

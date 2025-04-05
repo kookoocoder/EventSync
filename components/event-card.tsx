@@ -54,7 +54,7 @@ export function EventCard({
     >
       <div className="relative h-48 w-full">
         <Image
-          src={bannerImage || "https://placehold.co/600x400?text=Hackathon"}
+          src={bannerImage || "https://placehold.co/600x400?text=Event"}
           alt={title}
           fill
           className="object-cover"
@@ -105,10 +105,10 @@ export function EventCard({
         ) : (
           <div className="w-full flex gap-2">
             <Button variant="outline" asChild className="flex-1">
-              <Link href={`/hackathons/${id}`}>Details</Link>
+              <Link href={`/events/${id}`}>Details</Link>
             </Button>
             <Button asChild className="flex-1">
-              <Link href={`/hackathons/${id}/register`}>Register</Link>
+              <Link href={`/events/${id}/register`}>Register</Link>
             </Button>
           </div>
         )}

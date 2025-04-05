@@ -1,58 +1,65 @@
 import Link from "next/link"
+import { Filter, Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { HeroSection } from "@/components/hero-section"
+import { Input } from "@/components/ui/input"
 import { SiteHeader } from "@/components/SiteHeader"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EventCard } from "@/components/EventCard"
 import { getUpcomingEvents, getLiveEvents, getPastEvents } from "@/lib/services/event-service"
-import { checkSupabaseConnection, checkEventsTable } from "@/lib/services/debug-service"
 
-// Removed server-side auth check here as it's handled in SiteHeader client component
-
-export default async function HomePage() {
-  // Debug Supabase connection
-  const connectionResult = await checkSupabaseConnection();
-  const tableResult = await checkEventsTable();
-  
-  console.log("Supabase connection check:", connectionResult);
-  console.log("Events table check:", tableResult);
-  
+export default async function EventsPage() {
   // Fetch events from Supabase
-  console.log("Home page: Starting to fetch events");
+  console.log("Events page: Starting to fetch events");
   const upcomingEvents = await getUpcomingEvents();
   const liveEvents = await getLiveEvents();
   const pastEvents = await getPastEvents();
   
-  console.log("Home page: Finished fetching events");
-  console.log(`Home page: Upcoming: ${upcomingEvents.length}, Live: ${liveEvents.length}, Past: ${pastEvents.length}`);
+  console.log("Events page: Finished fetching events");
+  console.log(`Events page: Upcoming: ${upcomingEvents.length}, Live: ${liveEvents.length}, Past: ${pastEvents.length}`);
 
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      
-      {/* Debug information box */}
-      <div className="bg-yellow-50 border border-yellow-200 p-4 m-4 rounded-md">
-        <h3 className="font-bold mb-2">Debug Information</h3>
-        <div className="text-sm space-y-1">
-          <p>Supabase Connection: {connectionResult.connected ? '✅ Connected' : '❌ Failed'}</p>
-          {!connectionResult.connected && connectionResult.error && (
-            <p className="text-red-500">Error: {connectionResult.error}</p>
-          )}
-          <p>Events Table: {tableResult.exists ? '✅ Exists' : '❌ Missing'}</p>
-          {!tableResult.exists && tableResult.error && (
-            <p className="text-red-500">Error: {tableResult.error}</p>
-          )}
-          <p>Events Found: Upcoming ({upcomingEvents.length}), Live ({liveEvents.length}), Past ({pastEvents.length})</p>
-        </div>
-      </div>
-      
+          <SiteHeader />
       <main className="flex-1">
-        <HeroSection />
-        <section className="container pl-4 pr-8 mx-auto max-w-7xl py-12 md:py-16 lg:py-20">
+        <section className="bg-muted py-12 md:py-16">
+          <div className="container pl-4 pr-8 mx-auto max-w-7xl">
+            <div className="flex flex-col items-center text-center">
+              <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Discover Events</h1>
+              <p className="mt-4 max-w-[700px] text-muted-foreground md:text-xl">
+                Find the perfect event to showcase your skills, learn new technologies, and connect with like-minded
+                innovators.
+              </p>
+              <div className="mt-8 flex w-full max-w-md flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input type="search" placeholder="Search events..." className="pl-8" />
+                </div>
+                <Button variant="outline" size="icon" className="shrink-0">
+                  <Filter className="h-4 w-4" />
+                  <span className="sr-only">Filter</span>
+                </Button>
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-[180px] shrink-0">
+                    <SelectValue placeholder="Filter by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Events</SelectItem>
+                    <SelectItem value="online">Online Only</SelectItem>
+                    <SelectItem value="in-person">In-Person Only</SelectItem>
+                    <SelectItem value="free">Free Registration</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="container pl-4 pr-8 mx-auto max-w-7xl py-12 md:py-16">
           <Tabs defaultValue="upcoming" className="w-full">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-              <h2 className="text-3xl font-bold tracking-tight mb-4 md:mb-0">Explore Events</h2>
+              <h2 className="text-2xl font-bold tracking-tight mb-4 md:mb-0">Browse Events</h2>
               <TabsList className="mx-auto md:mx-0">
                 <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                 <TabsTrigger value="live">Live Now</TabsTrigger>
