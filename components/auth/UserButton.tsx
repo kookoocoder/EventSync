@@ -32,7 +32,20 @@ export default function UserButton() {
   }
 
   const userType = user.user_metadata?.userType
+let profilePath = '/profile' // Default
+   if (userType === 'organizer') {
+       profilePath = '/organizer/profile'
+   } else if (userType === 'participant') {
+       profilePath = '/participant/profile'
+   }
 
+   let dashboardPath = '/dashboard' // Default
+   if (userType === 'organizer') {
+       dashboardPath = '/organizer/dashboard'
+   } else if (userType === 'participant') {
+       dashboardPath = '/participant/dashboard'
+   }
+   
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -52,14 +65,23 @@ export default function UserButton() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/profile')}>
+        <DropdownMenuItem onClick={() => router.push(profilePath)}>
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/settings')}>
+        <DropdownMenuItem
+          onClick={() => {
+            if (userType !== 'organizer') {
+              router.push('/settings')
+            }
+          }}
+          disabled={userType === 'organizer'}
+          className={userType === 'organizer' ? 'opacity-50 cursor-not-allowed' : ''}
+        >
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
+
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />

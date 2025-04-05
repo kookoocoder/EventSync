@@ -1,4 +1,3 @@
-// EventSync/components/SiteHeader.tsx (No changes needed, should work with updated AuthProvider)
 'use client'
 
 import Link from "next/link"

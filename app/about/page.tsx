@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ArrowRight, Award, Code, Globe, Lightbulb, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { MainNav } from "@/components/main-nav"
+import { SiteHeader } from "@/components/SiteHeader"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,24 +38,7 @@ export default function AboutPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <MainNav />
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block">
-              <ThemeToggle />
-            </div>
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Log in
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Register</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+          <SiteHeader />
       <main className="flex-1">
         <section className="bg-muted py-12 md:py-24">
           <div className="container px-4 md:px-6">

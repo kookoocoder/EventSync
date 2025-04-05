@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
-import { MainNav } from "@/components/main-nav"
+import { SiteHeader } from "@/components/SiteHeader"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -83,24 +83,7 @@ export default function HackathonRegistrationPage({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <MainNav />
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block">
-              <ThemeToggle />
-            </div>
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Log in
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">Register</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+          <SiteHeader />
       <main className="flex-1">
         <div className="container py-8">
           <div className="flex flex-col gap-8">

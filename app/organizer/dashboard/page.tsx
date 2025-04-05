@@ -20,8 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DashboardHeader } from "@/components/dashboard-header"
-// Removed DashboardAuthWrapper import
+import { SiteHeader } from "@/components/SiteHeader"
 
 export default async function OrganizerDashboardPage() {
   // Use requireAuth to ensure user is logged in and redirect server-side if not
@@ -126,7 +125,7 @@ export default async function OrganizerDashboardPage() {
   return (
     // Removed DashboardAuthWrapper
     <div className="flex min-h-screen flex-col">
-      <DashboardHeader user={user} />
+      <SiteHeader />
 
       <main className="flex-1">
         {profileError ? (

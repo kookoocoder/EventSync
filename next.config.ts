@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    dangerouslyAllowSVG: true,
     // Use remotePatterns (recommended over domains)
     remotePatterns: [
       {
