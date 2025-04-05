@@ -1,4 +1,4 @@
-// EventSync/app/organizer/dashboard/page.tsx (Remove DashboardAuthWrapper, Auth handled by template/middleware)
+// EventSync/app/organizer/dashboard/page.tsx (Updated to fetch from 'organizers' table)
 import Link from "next/link"
 import {
   BarChart3,
@@ -27,23 +27,23 @@ export default async function OrganizerDashboardPage() {
   const user = await Auth.requireOrganizer() // Ensures organizer role
 
   const supabase = createServerComponentClient()
-  let organizerProfile: any = null
+  let organizerProfile: any = null // Renamed variable for clarity, will hold data from organizers table
   let profileError: string | null = null
   try {
-    // Fetch profile data using the authenticated user's ID
+    // Fetch profile data specifically from the 'organizers' table using the authenticated user's ID
     const { data: profile, error } = await supabase
-      .from('profiles') // Assuming a general 'profiles' table or a specific 'organizers' table
-      .select('name, organization, website') // Adjust fields as needed
-      .eq('id', user.id)
-      .single()
+      .from('organizers') // *** Fetch from the 'organizers' table ***
+      .select('name, organization_name, organization_website') // *** Select fields from 'organizers' table ***
+      .eq('id', user.id) // Match based on the user's auth ID
+      .single() // An organizer should have one entry
 
     if (error && error.code !== 'PGRST116') { // Ignore 'PGRST116' (No rows found)
       throw error
     }
-    organizerProfile = profile
+    organizerProfile = profile // Assign fetched data
   } catch (err: any) {
-    console.error("Error fetching organizer profile:", err)
-    profileError = "Failed to load profile data."
+    console.error("Error fetching organizer data:", err) // Updated error message
+    profileError = "Failed to load organizer profile data."
   }
 
    // --- Mock Data (Replace with actual Supabase fetches for hackathons created by this user) ---
@@ -191,18 +191,21 @@ export default async function OrganizerDashboardPage() {
               </Tabs>
 
               {/* Organizer Info */}
-               {organizerProfile && (
+               {organizerProfile && ( // Check if organizerProfile data was successfully fetched
                     <Card>
                         <CardHeader>
                             <CardTitle>Organization Info</CardTitle>
                         </CardHeader>
                         <CardContent>
+                            {/* Display the organizer's name from the organizers table */}
                             {organizerProfile.name && <p className="mb-1"><span className="font-medium">Contact Name:</span> {organizerProfile.name}</p>}
-                            {organizerProfile.organization && <p className="mb-1"><span className="font-medium">Organization:</span> {organizerProfile.organization}</p>}
-                            {organizerProfile.website && <p><span className="font-medium">Website:</span> <a href={organizerProfile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{organizerProfile.website}</a></p>}
+                            {/* Display the organization name from the organizers table */}
+                            {organizerProfile.organization_name && <p className="mb-1"><span className="font-medium">Organization:</span> {organizerProfile.organization_name}</p>}
+                            {/* Display the website from the organizers table */}
+                            {organizerProfile.organization_website && <p><span className="font-medium">Website:</span> <a href={organizerProfile.organization_website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{organizerProfile.organization_website}</a></p>}
                         </CardContent>
                          <CardFooter>
-                             <Link href="/organizer/profile"> {/* Add link to edit profile */}
+                             <Link href="/organizer/profile"> {/* Link to the organizer's profile editing page */}
                                 <Button variant="outline" size="sm">Edit Profile</Button>
                             </Link>
                         </CardFooter>
@@ -217,7 +220,6 @@ export default async function OrganizerDashboardPage() {
 }
 
 // HackathonCard Component (Keep as is, including OrganizerHackathon interface)
-// ... HackathonCard component code ...
 interface OrganizerHackathon {
   id: string
   title: string
@@ -238,7 +240,6 @@ function HackathonCard({ hackathon, isPast = false }: {
   hackathon: OrganizerHackathon
   isPast?: boolean
 }) {
- // ... card implementation ...
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col md:flex-row">
