@@ -1,5 +1,4 @@
-"use client"
-
+// EventSync/app/organizer/dashboard/page.tsx (Remove DashboardAuthWrapper, Auth handled by template/middleware)
 import Link from "next/link"
 import {
   BarChart3,
@@ -14,89 +13,42 @@ import {
   Trophy,
   Users,
 } from "lucide-react"
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { getBrowserClient } from '@/utils/supabase/browser-client'
-import { useAuth } from '@/components/auth-provider'
 
+import { Auth } from '@/lib/auth-server'
+import { createServerComponentClient } from '@/lib/supabase/server' // Updated path
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MainNav } from "@/components/main-nav"
+import { DashboardHeader } from "@/components/dashboard-header"
+// Removed DashboardAuthWrapper import
 
-export default function OrganizerDashboardPage() {
-  const router = useRouter()
-  const { user, isLoading: authLoading, isAuthenticated, signOut } = useAuth()
-  const [organizerProfile, setOrganizerProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default async function OrganizerDashboardPage() {
+  // Use requireAuth to ensure user is logged in and redirect server-side if not
+  const user = await Auth.requireOrganizer() // Ensures organizer role
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        // If still loading auth or not authenticated, don't fetch profile
-        if (authLoading) return;
-        
-        if (!isAuthenticated || !user) {
-          console.log("User not authenticated, redirecting to login");
-          router.push('/login');
-          return;
-        }
-        
-        // Check if the user is actually an organizer
-        if (user.user_metadata?.userType !== 'organizer') {
-          console.warn("User is not an organizer, redirecting");
-          if (user.user_metadata?.userType === 'participant') {
-            router.push('/participant/dashboard');
-          } else {
-            router.push('/');
-          }
-          return;
-        }
-        
-        // Only fetch profile if authenticated and correct role
-        const supabase = getBrowserClient();
-        const { data: profile, error: profileError } = await supabase
-          .from('organizers')
-          .select('name, organization, website')
-          .eq('id', user.id)
-          .single();
-          
-        if (profileError) {
-          console.error("Error fetching organizer profile:", profileError);
-          setError("Failed to load profile data");
-        } else {
-          console.log("Profile data retrieved");
-          setOrganizerProfile(profile);
-        }
-      } catch (err) {
-        console.error("Dashboard error:", err);
-        setError("An unexpected error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchProfile();
-  }, [authLoading, isAuthenticated, user, router]);
+  const supabase = createServerComponentClient()
+  let organizerProfile: any = null
+  let profileError: string | null = null
+  try {
+    // Fetch profile data using the authenticated user's ID
+    const { data: profile, error } = await supabase
+      .from('profiles') // Assuming a general 'profiles' table or a specific 'organizers' table
+      .select('name, organization, website') // Adjust fields as needed
+      .eq('id', user.id)
+      .single()
 
-  // Handle loading states
-  if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Loading dashboard...</p>
-      </div>
-    );
-  }
-  
-  // Redirect if not authenticated (handled in useEffect)
-  if (!isAuthenticated || !user) {
-    return null;
+    if (error && error.code !== 'PGRST116') { // Ignore 'PGRST116' (No rows found)
+      throw error
+    }
+    organizerProfile = profile
+  } catch (err: any) {
+    console.error("Error fetching organizer profile:", err)
+    profileError = "Failed to load profile data."
   }
 
-  // Mock data for organizer's hackathons
-  const activeHackathons = [
+   // --- Mock Data (Replace with actual Supabase fetches for hackathons created by this user) ---
+     const activeHackathons = [
     {
       id: "1",
       title: "AI Innovation Challenge",
@@ -147,7 +99,6 @@ export default function OrganizerDashboardPage() {
     },
   ]
 
-  // Stats for the dashboard
   const stats = [
     {
       title: "Total Hackathons",
@@ -170,39 +121,18 @@ export default function OrganizerDashboardPage() {
       icon: Trophy,
     },
   ]
+   // --- End Mock Data ---
 
   return (
+    // Removed DashboardAuthWrapper
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <MainNav />
-          <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1">
-                  <span className="hidden sm:inline-block">{user?.user_metadata?.name || "Organizer"}</span>
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                    {user?.user_metadata?.name?.[0]?.toUpperCase() || "O"}
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => signOut()}>Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-      
-      {/* Main content */}
+      <DashboardHeader user={user} />
+
       <main className="flex-1">
-        {error ? (
+        {profileError ? (
           <div className="container py-8">
             <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700 mb-6">
-              <p>{error}</p>
-              <Button onClick={() => signOut()} className="mt-4" variant="outline">Sign Out and Try Again</Button>
+              <p>{profileError}</p>
             </div>
           </div>
         ) : (
@@ -210,7 +140,7 @@ export default function OrganizerDashboardPage() {
             <div className="flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight">Organizer Dashboard</h1>
-                <Link href="/organizer/hackathons/create">
+                <Link href="/organizer/create-event"> {/* Updated link */}
                   <Button className="gap-1">
                     <Plus className="h-4 w-4" />
                     Create Hackathon
@@ -218,47 +148,67 @@ export default function OrganizerDashboardPage() {
                 </Link>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between space-y-0">
-                        <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                        <stat.icon className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="mt-3">
-                        <p className="text-3xl font-bold">{stat.value}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              {/* Stats Cards */}
+               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                 {stats.map((stat, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between space-y-0">
+                          <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                          <stat.icon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="mt-3">
+                          <p className="text-3xl font-bold">{stat.value}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+               </div>
 
+               {/* Hackathon Tabs */}
               <Tabs defaultValue="active" className="w-full">
                 <TabsList>
                   <TabsTrigger value="active">Active Hackathons</TabsTrigger>
                   <TabsTrigger value="past">Past Hackathons</TabsTrigger>
                 </TabsList>
                 <TabsContent value="active" className="space-y-4 pt-4">
-                  {activeHackathons.map((hackathon) => (
-                    <HackathonCard key={hackathon.id} hackathon={hackathon} />
-                  ))}
+                  {activeHackathons.length > 0 ? (
+                    activeHackathons.map((hackathon) => (
+                      <HackathonCard key={hackathon.id} hackathon={hackathon} />
+                    ))
+                  ) : (
+                     <p className="text-muted-foreground text-center py-4">No active hackathons found. <Link href="/organizer/create-event" className="text-primary hover:underline">Create one now!</Link></p>
+                  )}
                 </TabsContent>
                 <TabsContent value="past" className="space-y-4 pt-4">
-                  {pastHackathons.map((hackathon) => (
-                    <HackathonCard key={hackathon.id} hackathon={hackathon} isPast />
-                  ))}
+                 {pastHackathons.length > 0 ? (
+                    pastHackathons.map((hackathon) => (
+                      <HackathonCard key={hackathon.id} hackathon={hackathon} isPast />
+                    ))
+                 ) : (
+                     <p className="text-muted-foreground text-center py-4">No past hackathons found.</p>
+                 )}
                 </TabsContent>
               </Tabs>
 
-              {/* Display profile info if fetched */} 
-              {organizerProfile && (
-                  <div className="mt-6 p-4 border rounded-lg">
-                      <h2 className="text-xl font-semibold mb-2">Your Organization</h2>
-                      {organizerProfile.organization && <p className="mb-2">Organization: {organizerProfile.organization}</p>}
-                      {organizerProfile.website && <p>Website: {organizerProfile.website}</p>}
-                  </div>
-              )}
+              {/* Organizer Info */}
+               {organizerProfile && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Organization Info</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {organizerProfile.name && <p className="mb-1"><span className="font-medium">Contact Name:</span> {organizerProfile.name}</p>}
+                            {organizerProfile.organization && <p className="mb-1"><span className="font-medium">Organization:</span> {organizerProfile.organization}</p>}
+                            {organizerProfile.website && <p><span className="font-medium">Website:</span> <a href={organizerProfile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{organizerProfile.website}</a></p>}
+                        </CardContent>
+                         <CardFooter>
+                             <Link href="/organizer/profile"> {/* Add link to edit profile */}
+                                <Button variant="outline" size="sm">Edit Profile</Button>
+                            </Link>
+                        </CardFooter>
+                    </Card>
+               )}
             </div>
           </div>
         )}
@@ -267,7 +217,8 @@ export default function OrganizerDashboardPage() {
   )
 }
 
-// Define the type for the hackathon prop
+// HackathonCard Component (Keep as is, including OrganizerHackathon interface)
+// ... HackathonCard component code ...
 interface OrganizerHackathon {
   id: string
   title: string
@@ -285,27 +236,28 @@ interface OrganizerHackathon {
 }
 
 function HackathonCard({ hackathon, isPast = false }: {
-  hackathon: OrganizerHackathon // Apply the type here
+  hackathon: OrganizerHackathon
   isPast?: boolean
 }) {
+ // ... card implementation ...
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col md:flex-row">
-        <div className="md:w-1/4 lg:w-1/5">
+        <div className="md:w-1/4 lg:w-1/5 flex-shrink-0">
           <img
             src={hackathon.image || "/placeholder.svg"}
             alt={hackathon.title}
-            className="h-full w-full object-cover aspect-video md:aspect-square"
+             className="h-full w-full object-cover aspect-video md:aspect-auto" // Adjust aspect ratio
           />
         </div>
         <div className="flex flex-1 flex-col">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-2"> {/* Use items-start */}
+              <div className="flex-1"> {/* Allow title/desc to wrap */}
                 <CardTitle>{hackathon.title}</CardTitle>
-                <CardDescription className="mt-1">{hackathon.description}</CardDescription>
+                <CardDescription className="mt-1 line-clamp-2">{hackathon.description}</CardDescription> {/* Limit description lines */}
               </div>
-              <div>
+              <div className="flex-shrink-0"> {/* Prevent dropdown from wrapping */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon">
@@ -313,14 +265,24 @@ function HackathonCard({ hackathon, isPast = false }: {
                       <span className="sr-only">Open menu</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="mr-2 h-4 w-4" /> View Details
+                   <DropdownMenuContent align="end">
+                     <DropdownMenuItem asChild>
+                       <Link href={`/hackathons/${hackathon.id}`}> {/* Link to public details page */}
+                         <Eye className="mr-2 h-4 w-4" /> View Public Page
+                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="mr-2 h-4 w-4" /> Edit Hackathon
+                     <DropdownMenuItem asChild>
+                        <Link href={`/organizer/dashboard/${hackathon.id}`}> {/* Link to event dashboard */}
+                            <BarChart3 className="mr-2 h-4 w-4" /> Event Dashboard
+                        </Link>
+                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/organizer/edit-event/${hackathon.id}`}> {/* Link to edit page */}
+                        <Edit className="mr-2 h-4 w-4" /> Edit Hackathon
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive">
+                      {/* Add Delete Logic Here */}
                       <Trash2 className="mr-2 h-4 w-4" /> Delete Hackathon
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -330,55 +292,52 @@ function HackathonCard({ hackathon, isPast = false }: {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="flex items-center text-sm">
-                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+               <div className="flex items-center text-sm">
+                <Calendar className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{hackathon.date}</span>
               </div>
               <div className="flex items-center text-sm">
-                <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                <MapPin className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{hackathon.location}</span>
               </div>
               <div className="flex items-center text-sm">
-                <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                <Clock className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>Deadline: {hackathon.registrationDeadline}</span>
               </div>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="rounded-lg bg-primary/10 p-3 text-center">
+              <div className="rounded-lg bg-muted p-3 text-center">
                 <p className="text-xs text-muted-foreground">Registered</p>
                 <p className="text-xl font-bold">{hackathon.participants.registered}</p>
               </div>
-              <div className="rounded-lg bg-green-100 p-3 text-center">
+              <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Approved</p>
-                <p className="text-xl font-bold">{hackathon.participants.approved}</p>
+                <p className="text-xl font-bold text-green-700 dark:text-green-300">{hackathon.participants.approved}</p>
               </div>
-              <div className="rounded-lg bg-amber-100 p-3 text-center">
+              <div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Pending</p>
-                <p className="text-xl font-bold">{hackathon.participants.pending}</p>
+                <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{hackathon.participants.pending}</p>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between items-center mt-auto pt-4"> {/* Ensure alignment */}
             <div className="text-sm">
               <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  isPast ? "bg-muted text-muted-foreground" : "bg-green-100 text-green-800"
-                }`}
-              >
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isPast ? "bg-muted text-muted-foreground" : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"}`}>
                 {hackathon.status}
               </span>
             </div>
             <div className="flex gap-2">
-              <Link href={`/organizer/hackathons/${hackathon.id}/participants`}>
+              <Link href={`/organizer/registrations/${hackathon.id}`}> {/* Updated link */}
                 <Button variant="outline" size="sm">
-                  <Users className="mr-2 h-4 w-4" /> Manage Participants
+                  <Users className="mr-2 h-4 w-4" /> Manage Registrations
                 </Button>
               </Link>
-              <Link href={`/organizer/hackathons/${hackathon.id}/dashboard`}>
-                <Button size="sm">
-                  <BarChart3 className="mr-2 h-4 w-4" /> Dashboard
-                </Button>
+               <Link href={`/organizer/dashboard/${hackathon.id}`}> {/* Link to event dashboard */}
+                 <Button size="sm">
+                    <BarChart3 className="mr-2 h-4 w-4" /> Dashboard
+                 </Button>
               </Link>
             </div>
           </CardFooter>
@@ -387,4 +346,3 @@ function HackathonCard({ hackathon, isPast = false }: {
     </Card>
   )
 }
-

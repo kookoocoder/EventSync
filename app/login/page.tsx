@@ -1,112 +1,120 @@
+// EventSync/app/login/page.tsx (Ensure it uses useActionState correctly)
 "use client"
 
-import { useState, useEffect, useActionState } from "react"
-import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import { useFormStatus } from "react-dom"
-import { Code, Eye, EyeOff } from "lucide-react"
-import { loginUser } from "./actions"
+import Link from 'next/link'
+import { useActionState } from 'react' // Correct import from react
+import { useFormStatus } from 'react-dom'
+import { login } from './actions'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Mail, Lock, Loader } from 'lucide-react'
+import { Alert, AlertDescription } from "@/components/ui/alert" // Import Alert components
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <Button className="w-full" type="submit" aria-disabled={pending} disabled={pending}>
-      {pending ? "Signing in..." : "Sign in"}
-    </Button>
-  );
+// Define the expected shape of the state returned by the action
+interface LoginState {
+  error: string | null;
 }
 
-export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false)
-  const searchParams = useSearchParams()
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+const initialState: LoginState = {
+  error: null,
+}
 
-  useEffect(() => {
-    const errorParam = searchParams.get('error');
-    const messageParam = searchParams.get('message');
-    let displayMessage = null;
-    if (errorParam) {
-      displayMessage = decodeURIComponent(errorParam);
-    } else if (messageParam) {
-      displayMessage = decodeURIComponent(messageParam);
-    }
-    setErrorMessage(displayMessage);
-  }, [searchParams]);
-
-  const initialState = { error: null };
-  const [state, formAction] = useActionState(loginUser, initialState);
-
-  useEffect(() => {
-    if (state?.error) {
-      setErrorMessage(state.error);
-    }
-  }, [state]);
+function LoginButton() {
+  const { pending } = useFormStatus()
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-r from-purple-50 to-violet-50 p-4">
-      <Link href="/" className="absolute left-8 top-8 flex items-center gap-2 md:left-12 md:top-12">
-        <Code className="h-6 w-6" />
-        <span className="font-bold">HackSync</span>
-      </Link>
-
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <form action={formAction}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="name@example.com" required />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Input id="password" name="password" type={showPassword ? "text" : "password"} placeholder="••••••••" required />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
-                </Button>
-              </div>
-            </div>
-            {errorMessage && (
-              <p className="text-sm font-medium text-destructive pt-2 text-center">{errorMessage}</p>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-col">
-            <SubmitButton />
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-primary hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+    <Button type="submit" className="w-full" aria-disabled={pending} disabled={pending}>
+      {pending ? (
+        <>
+          <Loader className="mr-2 h-4 w-4 animate-spin" />
+          Signing in...
+        </>
+      ) : (
+        'Sign in'
+      )}
+    </Button>
   )
 }
 
+export default function LoginPage() {
+  // Use useActionState from React
+  const [state, formAction] = useActionState<LoginState, FormData>(login, initialState) // Add type annotations
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">Sign in to your account</h1>
+          <p className="mt-2 text-sm text-muted-foreground"> {/* Updated text color */}
+            Or{' '}
+            <Link href="/register" className="font-medium text-primary hover:underline"> {/* Use primary color */}
+              create a new account
+            </Link>
+          </p>
+        </div>
+
+        {/* Display error message using Alert component */}
+        {state?.error && (
+          <Alert variant="destructive">
+             <AlertDescription>{state.error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Use form element with the action */}
+        <form className="mt-8 space-y-6" action={formAction}>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <div className="relative mt-1">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Mail className="h-5 w-5 text-muted-foreground" /> {/* Updated color */}
+                </div>
+                <Input
+                  id="email"
+                  name="email" // Name attribute is required for server actions
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="pl-10"
+                  placeholder="you@example.com"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative mt-1">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Lock className="h-5 w-5 text-muted-foreground" /> {/* Updated color */}
+                </div>
+                <Input
+                  id="password"
+                  name="password" // Name attribute is required for server actions
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="pl-10"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end"> {/* Aligned forgot password link */}
+            <div className="text-sm">
+              {/* Link to forgot password page if you have one */}
+              <Link href="/auth/forgot-password" className="font-medium text-primary hover:underline"> {/* Use primary color */}
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
+
+          <div>
+            <LoginButton />
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

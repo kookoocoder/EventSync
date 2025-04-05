@@ -1,3 +1,4 @@
+// EventSync/tsconfig.json (Remove app-router.d.ts if app/types.d.ts is used)
 {
   "compilerOptions": {
     "target": "ES2017",
@@ -22,6 +23,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app-router.d.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/types.d.ts"], // Updated
   "exclude": ["node_modules"]
 }

@@ -1,41 +1,15 @@
 import Link from "next/link"
 import { ArrowRight, Calendar, MapPin, Users } from "lucide-react"
-import { createClient } from '@supabase/supabase-js'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { HeroSection } from "@/components/hero-section"
-import { MainNav } from "@/components/main-nav"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { SiteHeader } from "@/components/SiteHeader"
+
+// Removed server-side auth check here as it's handled in SiteHeader client component
 
 export default async function HomePage() {
-  // Create anonymous client for server-side usage
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: false, // Don't persist on server
-        autoRefreshToken: false,
-      }
-    }
-  )
-
-  // This will check for cookies automatically via middleware
-  const { data, error } = await supabase.auth.getSession()
-  
-  // For debugging
-  if (error) {
-    console.error("Home page auth error:", error.message)
-  }
-  
-  const user = data?.session?.user
-  console.log("Home page auth state:", user ? "Authenticated" : "Not authenticated")
-  
-  const userType = user?.user_metadata?.userType
-  const dashboardPath = userType === 'organizer' ? '/organizer/dashboard' : '/participant/dashboard'
-
   // Mock data for hackathons
   const upcomingHackathons = [
     {
@@ -114,34 +88,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <MainNav />
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block">
-              <ThemeToggle />
-            </div>
-            
-            {/* Conditional Auth Buttons */} 
-            {user ? (
-              <Link href={dashboardPath}>
-                <Button size="sm">Dashboard</Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="ghost" size="sm">
-                    Log in
-                  </Button>
-                </Link>
-                <Link href="/register">
-                  <Button size="sm">Register</Button>
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
       <main className="flex-1">
         <HeroSection />
         <section className="container py-12 md:py-16 lg:py-20">

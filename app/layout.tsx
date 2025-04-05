@@ -1,16 +1,17 @@
+// EventSync/app/layout.tsx (Ensure correct AuthProvider path)
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 
-import { ThemeProvider } from "../components/theme-provider"
-import { AuthProvider } from "../components/auth-provider"
+import { ThemeProvider } from "@/components/theme-provider" // Corrected path
+import { AuthProvider } from "@/components/auth/AuthProvider" // Corrected path
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "HackSync - Hackathon Platform",
-  description: "Join the most exciting hackathons and turn your ideas into reality.",
+  title: "EventSync",
+  description: "Connect, collaborate, and compete in hackathons",
 }
 
 export default function RootLayout({
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {/* AuthProvider wraps the entire application */}
           <AuthProvider>
             {children}
           </AuthProvider>
@@ -30,4 +32,3 @@ export default function RootLayout({
     </html>
   )
 }
-

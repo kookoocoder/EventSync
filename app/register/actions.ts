@@ -1,129 +1,132 @@
+// EventSync/app/register/actions.ts (Corrected Signature)
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createServerActionClient } from '@/lib/supabase/server' // Correct path
 
-// Define the expected shape of the form data (matching your Zod schema)
-interface FormData {
-  name: string;
-  email: string;
-  password: string;
-  userType: 'participant' | 'organizer';
-  organizationName?: string;
-  organizationAddress?: string;
-  organizationWebsite?: string;
-  organizationDescription?: string;
+// Define the state shape for this action
+interface RegisterState {
+  error: string | null;
 }
 
-export async function registerUser(formData: FormData) {
-  console.log("Registration attempt for:", formData.email, "as", formData.userType)
+type RegisterFormData = {
+  email: string
+  password: string
+  username: string
+  name: string
+  userType: 'organizer' | 'participant'
+}
 
-  // 1. Use the standard client (with anon key) to sign up the user
-  const supabaseAnonClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storageKey: 'supabase.auth.token',
-      },
-      global: {
-        headers: {
-          'X-Client-Info': 'nextjs-register-action',
-        },
-      },
-    }
-  )
+// Helper function for validation (keep as is)
+function validateFormData(data: RegisterFormData): string | null {
+    // ... validation logic ...
+    if (!data.email || !data.email.includes('@')) return 'Invalid email address.';
+    if (!data.password || data.password.length < 6) return 'Password must be at least 6 characters long.'; // Supabase default is 6
+    if (!data.username || data.username.length < 3) return 'Username must be at least 3 characters long.';
+    if (!data.name) return 'Full Name is required.';
+    if (!data.userType || !['organizer', 'participant'].includes(data.userType)) return 'Invalid user type selected.';
+    return null;
+}
 
-  const data = {
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      userType: formData.userType,
-      organizationName: formData.organizationName,
-      organizationAddress: formData.organizationAddress,
-      organizationWebsite: formData.organizationWebsite,
-      organizationDescription: formData.organizationDescription,
+// CORRECTED Signature: Accepts previousState and formData
+export async function register(
+    previousState: RegisterState, // First argument
+    formData: FormData           // Second argument
+): Promise<RegisterState> {     // Return type matches state
+  const supabase = createServerActionClient()
+
+  // Extract data from FormData
+  const data: RegisterFormData = {
+    email: formData.get('email') as string,
+    password: formData.get('password') as string,
+    username: formData.get('username') as string,
+    name: formData.get('name') as string,
+    userType: formData.get('userType') as 'organizer' | 'participant',
+  };
+
+  // Server-side validation
+  const validationError = validateFormData(data);
+  if (validationError) {
+      console.error("Registration validation failed:", validationError);
+      return { error: validationError }; // Return error state
   }
 
-  const { data: authData, error: authError } = await supabaseAnonClient.auth.signUp({
+  console.log(`[Register Action] Attempting registration for: ${data.email}`);
+  const { data: authData, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
       data: {
+        username: data.username,
         name: data.name,
-        userType: data.userType,
-      },
-    },
+        userType: data.userType // Store userType in auth metadata
+      }
+      // Add emailRedirectTo if you want confirmation emails to link back correctly
+      // emailRedirectTo: `${new URL(request.url).origin}/auth/callback` // Requires passing request or origin
+    }
   })
 
-  if (authError) {
-    console.error("Auth Error:", authError)
-    return redirect('/register?error=' + encodeURIComponent(authError.message || 'Could not authenticate user.'))
-  }
-
-  if (!authData.user) {
-    console.error("No user data after signup")
-    return redirect('/register?error=' + encodeURIComponent('Signup failed. Please try again.'))
-  }
-
-  console.log("User registered successfully, now creating profile...")
-
-  // 2. Use the Service Role Key to insert the profile, bypassing RLS for this specific trusted operation.
-  // Ensure SUPABASE_SERVICE_ROLE_KEY is set in your .env.local
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("Service Role Key not configured.")
-    return redirect('/register?error=' + encodeURIComponent('Server configuration error.'))
-  }
-
-  // Create a separate client instance initialized with the service role key
-  const supabaseServiceRoleClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { 
-      auth: { autoRefreshToken: false, persistSession: false },
-      global: {
-        headers: {
-          'X-Client-Info': 'nextjs-register-service-role',
-        },
-      },
+  if (error) {
+    console.error("[Register Action] Supabase SignUp Error:", error.message);
+    if (error.message.includes("User already registered")) {
+         return { error: "An account with this email already exists. Please log in." };
     }
-  );
+    if (error.message.includes("Password should be at least")) {
+        return { error: "Password does not meet the minimum length requirement (6 characters)." };
+    }
+     if (error.message.includes("check constraint violation")) {
+         // This often means RLS prevented the insert or there's a constraint on the table
+         console.error("[Register Action] Potential RLS or DB Constraint issue during profile insert.");
+         return { error: "Registration failed due to a database constraint. Please contact support." };
+    }
+    return { error: `Registration failed: ${error.message}` };
+  }
 
+   if (!authData.user || !authData.user.id) {
+        console.error("[Register Action] SignUp successful but no user data returned.");
+        return { error: 'Registration partially succeeded, but failed to initialize profile. Please contact support.' };
+   }
+
+  console.log(`[Register Action] User signed up: ${authData.user.id}, Email: ${authData.user.email}`);
+
+  // Create profile in database (ensure RLS allows this)
   try {
-    if (data.userType === 'participant') {
-      const { error: profileError } = await supabaseServiceRoleClient
-        .from('participants')
-        .insert({
-          id: authData.user.id, // Use the ID from the successful signup
-          name: data.name,
-          email: data.email,
-        })
-      if (profileError) throw profileError // Re-throw to be caught below
-    } else if (data.userType === 'organizer') {
-      const { error: profileError } = await supabaseServiceRoleClient
-        .from('organizers')
-        .insert({
-          id: authData.user.id,
-          name: data.name,
-          email: data.email,
-          organization_name: data.organizationName!, 
-          organization_address: data.organizationAddress,
-          organization_website: data.organizationWebsite || null,
-          organization_description: data.organizationDescription,
-        })
-      if (profileError) throw profileError // Re-throw to be caught below
+    console.log(`[Register Action] Attempting to insert profile for user: ${authData.user.id}`);
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert([{
+        id: authData.user.id, // Ensure this matches the user ID from auth
+        username: data.username,
+        name: data.name,
+        user_type: data.userType,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+
+    if (profileError) {
+      // Log the specific profile error, but don't necessarily block redirect
+      console.error('[Register Action] Error creating profile (non-blocking):', profileError);
+      // You could potentially return a state indicating partial success here if needed
+      // return { error: "Account created, but profile setup failed. Please update your profile later." };
+    } else {
+        console.log(`[Register Action] Profile inserted successfully for user: ${authData.user.id}`);
     }
-    
-    console.log("Profile created successfully for user:", authData.user.id)
-  } catch (profileError: any) {
-    console.error("Profile Insertion Error (Service Role Client):", profileError)
-    return redirect('/register?error=' + encodeURIComponent(`Failed to create profile: ${profileError.message}`))
+  } catch (err) {
+    console.error('[Register Action] Profile creation exception (non-blocking):', err);
   }
 
-  // 3. Signup and profile creation successful
-  revalidatePath('/', 'layout')
-  return redirect('/confirm-email') 
-} 
+  // --- Redirect based on email confirmation status ---
+   if (authData.user.identities?.length === 0 || !authData.user.email_confirmed_at) {
+    // Check if confirmation is required (no identity or email not confirmed)
+    // This check might vary slightly based on your Supabase settings
+    console.log(`[Register Action] User ${data.email} registered, needs email confirmation.`);
+    redirect('/confirm-email') // Redirect to a page telling them to check their email
+  } else {
+    // Auto-confirmed or confirmation not required
+    console.log(`[Register Action] User ${data.email} registered and confirmed.`);
+    redirect('/login?message=registration_successful') // Redirect to login with a success message
+  }
+
+  // This is unreachable if redirect occurs, but needed for type safety if redirect was conditional
+  // return { error: null };
+}
