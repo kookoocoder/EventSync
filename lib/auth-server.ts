@@ -4,7 +4,7 @@ import { createServerComponentClient } from './supabase/server' // Updated path
 
 // Get the current user from server components
 export async function getCurrentUser(options: { redirectOnError?: string } = {}) {
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient();
   const { data, error } = await supabase.auth.getUser()
 
   if (error && options.redirectOnError) {

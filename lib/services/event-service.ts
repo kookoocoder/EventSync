@@ -8,7 +8,7 @@ import { DBEvent } from '@/components/EventCard'; // Ensure correct path if move
 export async function getUpcomingEvents(): Promise<DBEvent[]> {
   const now = new Date().toISOString();
   try {
-    const supabase = createServerComponentClient();
+    const supabase = await createServerComponentClient();
     const { data, error } = await supabase
       .from('events')
       .select('*')
@@ -33,7 +33,7 @@ export async function getUpcomingEvents(): Promise<DBEvent[]> {
 export async function getLiveEvents(): Promise<DBEvent[]> {
   const now = new Date().toISOString();
   try {
-    const supabase = createServerComponentClient();
+    const supabase = await createServerComponentClient();
     const { data, error } = await supabase
       .from('events')
       .select('*')
@@ -59,17 +59,17 @@ export async function getLiveEvents(): Promise<DBEvent[]> {
 export async function getPastEvents(): Promise<DBEvent[]> {
   const now = new Date().toISOString();
   try {
-    const supabase = createServerComponentClient();
+    const supabase = await createServerComponentClient();
     const { data, error } = await supabase
       .from('events')
       .select('*')
       .lt('end_date', now)
       .eq('is_published', true)
-      .order('start_date', { ascending: false }); // Added order
+      .order('start_date', { ascending: false });
 
     if (error) {
-      console.error('Error fetching past events:', error); // Keep error log
-      return []; // Return empty array on error
+      console.error('Error fetching past events:', error);
+      return [];
     }
     return (data as DBEvent[]) || [];
   } catch (error) {
@@ -84,7 +84,7 @@ export async function getPastEvents(): Promise<DBEvent[]> {
 export async function getHackathonEvents(type: 'upcoming' | 'live' | 'past'): Promise<DBEvent[]> {
   const now = new Date().toISOString();
   try {
-    const supabase = createServerComponentClient();
+    const supabase = await createServerComponentClient();
     let query = supabase
       .from('events')
       .select('*')
@@ -115,7 +115,7 @@ export async function getHackathonEvents(type: 'upcoming' | 'live' | 'past'): Pr
  */
 export async function getEventById(id: string): Promise<DBEvent | null> {
   try {
-    const supabase = createServerComponentClient();
+    const supabase = await createServerComponentClient();
     const { data, error } = await supabase
       .from('events')
       .select('*')
@@ -137,7 +137,7 @@ export async function getEventById(id: string): Promise<DBEvent | null> {
  * Fetches featured events (either live or upcoming soon)
  */
 export async function getFeaturedEvents(limit: number = 3): Promise<DBEvent[]> {
-  const supabase = createServerComponentClient();
+  const supabase = await createServerComponentClient();
   const now = new Date().toISOString();
   let featuredEvents: DBEvent[] = [];
 
