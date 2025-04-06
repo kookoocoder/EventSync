@@ -1,12 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { createClient as createVanillaClient } from '@supabase/supabase-js'; // Import the standard client
 
-// --- SSR Client for Server Components (Reads Cookies) ---
-// Reads cookies from the incoming request for rendering server components.
-// Uses cookies() inside the handler to avoid async issues.
-export function createServerComponentClient() {
-  // console.log("[Supabase Client] Creating Server Component Client");
+export async function createServerComponentClient() {
+  const cookieStore = await cookies(); // Resolve cookies asynchronously
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -14,13 +10,10 @@ export function createServerComponentClient() {
       cookies: {
         get(name: string) {
           try {
-            const cookieStore = cookies();
-            // console.log(`[SC Client] Getting cookie: ${name}`);
             return cookieStore.get(name)?.value;
           } catch (error) {
-             // This can happen during static rendering or if cookies() is unavailable.
-             // console.error(`[SC Client] Error getting cookie '${name}' (might be static render):`, error);
-             return undefined; // Return undefined if cookies cannot be accessed
+            console.error(`[SC Client] Error getting cookie '${name}':`, error);
+            return undefined;
           }
         },
       },

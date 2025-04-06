@@ -1,52 +1,23 @@
-import Link from "next/link"
+// EventSync/app/page.tsx
+import Link from "next/link";
 
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { HeroSection } from "@/components/hero-section"
-import { SiteHeader } from "@/components/SiteHeader"
-import { EventCard } from "@/components/EventCard"
-import { getUpcomingEvents, getLiveEvents, getPastEvents } from "@/lib/services/event-service"
-import { checkSupabaseConnection, checkEventsTable } from "@/lib/services/debug-service"
-
-// Removed server-side auth check here as it's handled in SiteHeader client component
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HeroSection } from "@/components/hero-section";
+import { SiteHeader } from "@/components/SiteHeader";
+import { EventCard } from "@/components/EventCard";
+import { getUpcomingEvents, getLiveEvents, getPastEvents } from "@/lib/services/event-service";
 
 export default async function HomePage() {
-  // Debug Supabase connection
-  const connectionResult = await checkSupabaseConnection();
-  const tableResult = await checkEventsTable();
-  
-  console.log("Supabase connection check:", connectionResult);
-  console.log("Events table check:", tableResult);
-  
   // Fetch events from Supabase
-  console.log("Home page: Starting to fetch events");
   const upcomingEvents = await getUpcomingEvents();
   const liveEvents = await getLiveEvents();
   const pastEvents = await getPastEvents();
-  
-  console.log("Home page: Finished fetching events");
-  console.log(`Home page: Upcoming: ${upcomingEvents.length}, Live: ${liveEvents.length}, Past: ${pastEvents.length}`);
 
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      
-      {/* Debug information box */}
-      <div className="bg-yellow-50 border border-yellow-200 p-4 m-4 rounded-md">
-        <h3 className="font-bold mb-2">Debug Information</h3>
-        <div className="text-sm space-y-1">
-          <p>Supabase Connection: {connectionResult.connected ? '✅ Connected' : '❌ Failed'}</p>
-          {!connectionResult.connected && connectionResult.error && (
-            <p className="text-red-500">Error: {connectionResult.error}</p>
-          )}
-          <p>Events Table: {tableResult.exists ? '✅ Exists' : '❌ Missing'}</p>
-          {!tableResult.exists && tableResult.error && (
-            <p className="text-red-500">Error: {tableResult.error}</p>
-          )}
-          <p>Events Found: Upcoming ({upcomingEvents.length}), Live ({liveEvents.length}), Past ({pastEvents.length})</p>
-        </div>
-      </div>
-      
+
       <main className="flex-1">
         <HeroSection />
         <section className="container pl-4 pr-8 mx-auto max-w-7xl py-12 md:py-16 lg:py-20">
@@ -63,13 +34,7 @@ export default async function HomePage() {
               <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
                 {upcomingEvents.length > 0 ? (
                   upcomingEvents.map((event) => (
-                    <div key={event.id}>
-                      {/* Debug info */}
-                      <div className="text-xs text-gray-400 mb-1">
-                        Debug: Event ID: {event.id.substring(0, 8)}...
-                      </div>
-                      <EventCard event={event} />
-                    </div>
+                    <EventCard key={event.id} event={event} />
                   ))
                 ) : (
                   <div className="col-span-3 text-center py-10">
@@ -82,13 +47,7 @@ export default async function HomePage() {
               <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
                 {liveEvents.length > 0 ? (
                   liveEvents.map((event) => (
-                    <div key={event.id}>
-                      {/* Debug info */}
-                      <div className="text-xs text-gray-400 mb-1">
-                        Debug: Event ID: {event.id.substring(0, 8)}...
-                      </div>
-                      <EventCard event={event} isLive />
-                    </div>
+                    <EventCard key={event.id} event={event} isLive />
                   ))
                 ) : (
                   <div className="col-span-3 text-center py-10">
@@ -101,13 +60,7 @@ export default async function HomePage() {
               <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
                 {pastEvents.length > 0 ? (
                   pastEvents.map((event) => (
-                    <div key={event.id}>
-                      {/* Debug info */}
-                      <div className="text-xs text-gray-400 mb-1">
-                        Debug: Event ID: {event.id.substring(0, 8)}...
-                      </div>
-                      <EventCard event={event} isPast />
-                    </div>
+                    <EventCard key={event.id} event={event} isPast />
                   ))
                 ) : (
                   <div className="col-span-3 text-center py-10">
@@ -140,4 +93,3 @@ export default async function HomePage() {
     </div>
   )
 }
-
