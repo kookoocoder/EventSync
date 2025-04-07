@@ -1,23 +1,23 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
 import { createServerComponentClient } from "@/lib/supabase/server";
+import { Calendar, Clock, Code, GraduationCap, MapPin, Trophy, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Users, Clock, DollarSign, Trophy } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { SiteHeader } from "@/components/SiteHeader";
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: { id: string } }): Promise<Metadata> {
+  const { id } = await props.params;
+
   const supabase = await createServerComponentClient();
   const { data: event } = await supabase
     .from("events")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (!event) {
@@ -32,12 +32,14 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default async function EventPage({ params }: { params: { id: string } }) {
+export default async function EventPage(props: { params: { id: string } }) {
+  const { id } = await props.params;
+
   const supabase = await createServerComponentClient();
   const { data: event, error } = await supabase
     .from("events")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !event) {
@@ -83,182 +85,271 @@ export default async function EventPage({ params }: { params: { id: string } }) 
   };
 
   return (
-    <div className="container mx-auto py-6 px-4 md:px-6">
-      {/* Event Banner */}
-      <div className="relative w-full h-64 md:h-96 rounded-xl overflow-hidden mb-6">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10" />
-        {isLiveEvent() && (
-          <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full z-20 animate-pulse">
-            Live Now
-          </div>
-        )}
-        <img 
-          src={event.banner_image || "/placeholder.svg"} 
-          alt={event.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute bottom-6 left-6 z-10 text-white">
-          <h1 className="text-3xl md:text-4xl font-bold">{event.name}</h1>
-          {event.event_type && (
-            <Badge className="mt-2 bg-black/50 backdrop-blur-sm capitalize">
-              {event.event_type}
-            </Badge>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
+      <main className="flex-1">
+        {/* Hero Banner */}
+        <div className="relative h-64 md:h-80 lg:h-96 w-full overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
+          {isLiveEvent() && (
+            <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full z-20 animate-pulse">
+              Live Now
+            </div>
           )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="about">
-            <TabsList className="mb-4">
-              <TabsTrigger value="about">About</TabsTrigger>
-              {event.rules && <TabsTrigger value="rules">Rules</TabsTrigger>}
-              {event.requirements && <TabsTrigger value="requirements">Requirements</TabsTrigger>}
-            </TabsList>
-            <TabsContent value="about" className="prose max-w-none">
-              <p>{event.description}</p>
-            </TabsContent>
-            {event.rules && (
-              <TabsContent value="rules" className="prose max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: event.rules }} />
-              </TabsContent>
-            )}
-            {event.requirements && (
-              <TabsContent value="requirements" className="prose max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: event.requirements }} />
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-
-        {/* Event Details Sidebar */}
-        <div className="space-y-6">
-          <div className="bg-card rounded-lg border shadow-sm p-6">
-            <h3 className="text-xl font-semibold mb-4">Event Details</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-start">
-                <Calendar className="w-5 h-5 mt-0.5 mr-3 text-muted-foreground" />
-                <div>
-                  <h4 className="font-medium">Date & Time</h4>
-                  <p className="text-muted-foreground">{formatDateRange()}</p>
+          <img
+            src={event.banner_image || "/placeholder.svg"}
+            alt={event.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute bottom-0 left-0 right-0 z-20 container py-6 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">{event.name}</h1>
+              <div className="flex flex-wrap gap-4 text-white/90">
+                <div className="flex items-center">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  <span>{formatDateRange()}</span>
                 </div>
+                <div className="flex items-center">
+                  <MapPin className="mr-2 h-4 w-4" />
+                  <span>{event.location || "TBA"}</span>
+                </div>
+                {event.current_participants !== null && (
+                  <div className="flex items-center">
+                    <Users className="mr-2 h-4 w-4" />
+                    <span>
+                      {event.current_participants} {event.max_participants ? `/ ${event.max_participants}` : ""} participants
+                    </span>
+                  </div>
+                )}
+                {event.registration_end_date && (
+                  <div className="flex items-center">
+                    <Clock className="mr-2 h-4 w-4" />
+                    <span>Registration closes: {format(new Date(event.registration_end_date), "MMMM d, yyyy")}</span>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex items-start">
-                <MapPin className="w-5 h-5 mt-0.5 mr-3 text-muted-foreground" />
-                <div>
-                  <h4 className="font-medium">Location</h4>
-                  <p className="text-muted-foreground">{event.location}</p>
-                  {event.event_type && (
-                    <Badge variant="outline" className="mt-1 capitalize">
-                      {event.event_type} event
-                    </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="container py-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-8">
+            <div className="flex flex-col md:flex-row gap-6 md:gap-12">
+              {/* Main Content */}
+              <div className="flex-1 space-y-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>About This Event</CardTitle>
+                    {event.organizer && <CardDescription>Organized by {event.organizer}</CardDescription>}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose max-w-none">
+                      <p className="whitespace-pre-wrap break-words">{event.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Tabs defaultValue="details" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    {event.prize_money && <TabsTrigger value="prizes">Prizes</TabsTrigger>}
+                    {event.rules && <TabsTrigger value="rules">Rules</TabsTrigger>}
+                    {event.requirements && <TabsTrigger value="requirements">Requirements</TabsTrigger>}
+                  </TabsList>
+
+                  <TabsContent value="details" className="space-y-4 pt-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          {event.location && (
+                            <div className="flex border-l-2 border-primary pl-4 pb-4 relative">
+                              <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-primary" />
+                              <div className="flex-1">
+                                <div className="flex flex-col gap-1">
+                                  <h3 className="font-medium">Location</h3>
+                                  <div className="flex items-center text-sm text-muted-foreground">
+                                    <MapPin className="mr-2 h-4 w-4" />
+                                    <span>{event.location}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {event.start_date && (
+                            <div className="flex border-l-2 border-primary pl-4 pb-4 relative">
+                              <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-primary" />
+                              <div className="flex-1">
+                                <div className="flex flex-col gap-1">
+                                  <h3 className="font-medium">Date & Time</h3>
+                                  <p className="text-sm text-muted-foreground">Event Starts at</p>
+                                  <div className="flex items-center text-sm text-muted-foreground">
+                                    <Calendar className="mr-2 h-4 w-4" />
+                                    <span>{formatDateRange()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {event.prize_money && (
+                    <TabsContent value="prizes" className="space-y-4 pt-4">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="rounded-lg p-6 bg-yellow-50 border border-yellow-200">
+                              <div className="flex items-center gap-4">
+                                <div className="rounded-full p-2 bg-yellow-100 text-yellow-700">
+                                  <Trophy className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <h3 className="font-medium">Prize Pool</h3>
+                                  <p className="text-2xl font-bold text-yellow-700">{event.prize_money}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
                   )}
-                </div>
-              </div>
-              
-              {event.registration_end_date && (
-                <div className="flex items-start">
-                  <Clock className="w-5 h-5 mt-0.5 mr-3 text-muted-foreground" />
-                  <div>
-                    <h4 className="font-medium">Registration Deadline</h4>
-                    <p className="text-muted-foreground">
-                      {format(new Date(event.registration_end_date), "MMMM d, yyyy")}
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {event.current_participants !== null && (
-                <div className="flex items-start">
-                  <Users className="w-5 h-5 mt-0.5 mr-3 text-muted-foreground" />
-                  <div>
-                    <h4 className="font-medium">Participants</h4>
-                    <p className="text-muted-foreground">{event.current_participants} registered</p>
-                  </div>
-                </div>
-              )}
-              
-              {event.prize_money && (
-                <div className="flex items-start">
-                  <Trophy className="w-5 h-5 mt-0.5 mr-3 text-muted-foreground" />
-                  <div>
-                    <h4 className="font-medium">Prize Pool</h4>
-                    <p className="text-muted-foreground">{event.prize_money}</p>
-                  </div>
-                </div>
-              )}
-              
-              {event.registration_fee !== null && (
-                <div className="flex items-start">
-                  <DollarSign className="w-5 h-5 mt-0.5 mr-3 text-muted-foreground" />
-                  <div>
-                    <h4 className="font-medium">Registration Fee</h4>
-                    <p className="text-muted-foreground">
-                      {event.registration_fee === 0 ? "Free Entry" : `$${event.registration_fee}`}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            <Separator className="my-6" />
-            
-            {isPastEvent() ? (
-              <Button className="w-full" variant="outline" asChild>
-                <Link href={`/events/${event.id}/results`}>View Results</Link>
-              </Button>
-            ) : (
-              <Button className="w-full" asChild disabled={!isRegistrationOpen()}>
-                <Link href={`/events/${event.id}/register`}>
-                  {isLiveEvent() ? "Join Now" : "Register"}
-                </Link>
-              </Button>
-            )}
-          </div>
-          
-          {event.max_team_size && event.max_team_size > 1 && (
-            <div className="bg-card rounded-lg border shadow-sm p-6">
-              <h3 className="text-xl font-semibold mb-4">Team Information</h3>
-              <div className="space-y-2">
-                <p className="flex justify-between">
-                  <span>Min Team Size:</span>
-                  <span className="font-medium">{event.min_team_size || 1}</span>
-                </p>
-                <p className="flex justify-between">
-                  <span>Max Team Size:</span>
-                  <span className="font-medium">{event.max_team_size}</span>
-                </p>
+                  {event.rules && (
+                    <TabsContent value="rules" className="space-y-4 pt-4">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="prose max-w-none">
+                            <div dangerouslySetInnerHTML={{ __html: event.rules }} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  )}
+
+                  {event.requirements && (
+                    <TabsContent value="requirements" className="space-y-4 pt-4">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="prose max-w-none">
+                            <div dangerouslySetInnerHTML={{ __html: event.requirements }} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  )}
+                </Tabs>
               </div>
-              <Separator className="my-4" />
-              <Button variant="outline" className="w-full" asChild>
-                <Link href={`/events/${event.id}/team`}>Manage Team</Link>
-              </Button>
+
+              {/* Sidebar */}
+              <div className="w-full md:w-80 space-y-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col gap-4">
+                      {isPastEvent() ? (
+                        <Button className="w-full" variant="outline" asChild>
+                          <Link href={`/events/${event.id}/results`}>View Results</Link>
+                        </Button>
+                      ) : (
+                        <Button className="w-full" size="lg" asChild disabled={!isRegistrationOpen()}>
+                          <Link href={`/events/${event.id}/register`}>
+                            {isLiveEvent() ? "Join Now" : "Register for Event"}
+                          </Link>
+                        </Button>
+                      )}
+
+                      {event.registration_end_date && (
+                        <div className="rounded-lg bg-muted p-4">
+                          <h3 className="font-medium mb-2">Registration Deadline</h3>
+                          <div className="flex items-center text-sm">
+                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span>{format(new Date(event.registration_end_date), "MMMM d, yyyy")}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {event.current_participants !== null && event.max_participants && (
+                        <div className="rounded-lg bg-muted p-4">
+                          <h3 className="font-medium mb-2">Participants</h3>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-sm">
+                              <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                              <span>{event.current_participants} registered</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {Math.round((event.current_participants / event.max_participants) * 100)}% full
+                            </span>
+                          </div>
+                          <div className="mt-2 h-2 w-full rounded-full bg-muted-foreground/20">
+                            <div
+                              className="h-2 rounded-full bg-primary"
+                              style={{
+                                width: `${(event.current_participants / event.max_participants) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {(event.max_team_size || event.min_team_size) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Team Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-start">
+                        <Users className="mr-2 h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <h3 className="font-medium">Team Size</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {event.min_team_size || 1}-{event.max_team_size} members per team
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {!isPastEvent() && event.max_team_size > 1 && (
+                        <Button variant="outline" className="w-full" asChild>
+                          <Link href={`/events/${event.id}/team`}>Manage Team</Link>
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {event.registration_fee > 0 && event.upi_id && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Payment Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {event.qr_code_url && (
+                        <div className="mb-4 flex justify-center">
+                          <img 
+                            src={event.qr_code_url} 
+                            alt="Payment QR Code"
+                            className="w-32 h-32 object-contain"
+                          />
+                        </div>
+                      )}
+                      <p className="text-sm text-center">
+                        UPI ID: <span className="font-medium">{event.upi_id}</span>
+                      </p>
+                      <p className="text-sm text-center mt-2">
+                        Registration Fee: <span className="font-medium">${event.registration_fee}</span>
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
-          )}
-          
-          {/* Payment Information (if applicable) */}
-          {event.registration_fee > 0 && event.upi_id && (
-            <div className="bg-card rounded-lg border shadow-sm p-6">
-              <h3 className="text-xl font-semibold mb-4">Payment Information</h3>
-              {event.qr_code_url && (
-                <div className="mb-4 flex justify-center">
-                  <img 
-                    src={event.qr_code_url} 
-                    alt="Payment QR Code"
-                    className="w-32 h-32 object-contain"
-                  />
-                </div>
-              )}
-              <p className="text-sm text-center text-muted-foreground mb-2">
-                UPI ID: <span className="font-medium">{event.upi_id}</span>
-              </p>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
