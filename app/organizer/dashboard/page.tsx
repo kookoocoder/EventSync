@@ -13,6 +13,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react"
+import { format } from "date-fns"
 
 import { Auth } from '@/lib/auth-server'
 import { createServerComponentClient } from '@/lib/supabase/server' // Updated path
@@ -22,105 +23,186 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SiteHeader } from "@/components/SiteHeader"
 
+// Helper function to format date range
+function formatDateRange(startDate: string, endDate: string): string {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  
+  // Format as "May 15-17, 2025" if in same month
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${format(start, "MMM d")}-${format(end, "d, yyyy")}`
+  }
+  
+  // Format as "May 30 - Jun 2, 2025" if different months
+  return `${format(start, "MMM d")} - ${format(end, "MMM d, yyyy")}`
+}
+
 export default async function OrganizerDashboardPage() {
   // Use requireAuth to ensure user is logged in and redirect server-side if not
   const user = await Auth.requireOrganizer() // Ensures organizer role
 
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient()
   let organizerProfile: any = null // Renamed variable for clarity, will hold data from organizers table
   let profileError: string | null = null
+  
+  // Variables to store events data
+  let activeEvents: OrganizerHackathon[] = []
+  let pastEvents: OrganizerHackathon[] = []
+  let eventsError: string | null = null
+  let stats = [
+    { title: "Total Hackathons", value: "0", icon: Calendar },
+    { title: "Total Participants", value: "0", icon: Users },
+    { title: "Active Events", value: "0", icon: Clock },
+    { title: "Prize Money Awarded", value: "$0", icon: Trophy },
+  ]
+  
   try {
     // Fetch profile data specifically from the 'organizers' table using the authenticated user's ID
     const { data: profile, error } = await supabase
-      .from('organizers') // *** Fetch from the 'organizers' table ***
-      .select('name, organization_name, organization_website') // *** Select fields from 'organizers' table ***
-      .eq('id', user.id) // Match based on the user's auth ID
-      .single() // An organizer should have one entry
+      .from('organizers') 
+      .select('name, organization_name, organization_website')
+      .eq('id', user.id) 
+      .single() 
 
     if (error && error.code !== 'PGRST116') { // Ignore 'PGRST116' (No rows found)
       throw error
     }
     organizerProfile = profile // Assign fetched data
+    
+    // Fetch all events by this organizer
+    const now = new Date().toISOString()
+    
+    // Fetch active events (end_date >= now)
+    const { data: activeEventsData, error: activeError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('organizer_id', user.id)
+      .gte('end_date', now)
+      .order('start_date', { ascending: true })
+    
+    if (activeError) throw activeError
+    
+    // Fetch past events (end_date < now)
+    const { data: pastEventsData, error: pastError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('organizer_id', user.id)
+      .lt('end_date', now)
+      .order('start_date', { ascending: false })
+    
+    if (pastError) throw pastError
+    
+    // Fetch registrations data for participant counts
+    const { data: registrationsData, error: regError } = await supabase
+      .from('registrations')
+      .select('id, event_id, status')
+      .in('event_id', [...(activeEventsData || []), ...(pastEventsData || [])].map(e => e.id))
+    
+    if (regError) throw regError
+    
+    // Process events data to match the OrganizerHackathon interface
+    if (activeEventsData) {
+      activeEvents = activeEventsData.map(event => {
+        // Count participants for this event
+        const eventRegistrations = registrationsData?.filter(r => r.event_id === event.id) || []
+        const registeredCount = eventRegistrations.length
+        const approvedCount = eventRegistrations.filter(r => r.status === 'approved').length
+        const pendingCount = eventRegistrations.filter(r => r.status === 'pending').length
+        
+        // Determine event status
+        const now = new Date()
+        const startDate = new Date(event.start_date)
+        const endDate = new Date(event.end_date)
+        const regEndDate = event.registration_end_date ? new Date(event.registration_end_date) : null
+        
+        let status = "Draft"
+        if (event.is_published) {
+          if (now < startDate) {
+            status = regEndDate && now > regEndDate ? "Registration Closed" : "Registration Open"
+          } else if (now >= startDate && now <= endDate) {
+            status = "Live Now"
+          } else {
+            status = "Completed"
+          }
+        }
+        
+        return {
+          id: event.id,
+          title: event.name,
+          description: event.description || "",
+          image: event.banner_image || "/placeholder.svg?height=400&width=600",
+          date: formatDateRange(event.start_date, event.end_date),
+          location: event.location,
+          registrationDeadline: event.registration_end_date ? format(new Date(event.registration_end_date), "MMM d, yyyy") : "No deadline",
+          participants: {
+            registered: registeredCount,
+            approved: approvedCount,
+            pending: pendingCount,
+          },
+          status,
+        }
+      })
+    }
+    
+    if (pastEventsData) {
+      pastEvents = pastEventsData.map(event => {
+        // Count participants for this event
+        const eventRegistrations = registrationsData?.filter(r => r.event_id === event.id) || []
+        const registeredCount = eventRegistrations.length
+        const approvedCount = eventRegistrations.filter(r => r.status === 'approved').length
+        const pendingCount = eventRegistrations.filter(r => r.status === 'pending').length
+        
+        return {
+          id: event.id,
+          title: event.name,
+          description: event.description || "",
+          image: event.banner_image || "/placeholder.svg?height=400&width=600",
+          date: formatDateRange(event.start_date, event.end_date),
+          location: event.location,
+          registrationDeadline: event.registration_end_date ? format(new Date(event.registration_end_date), "MMM d, yyyy") : "No deadline",
+          participants: {
+            registered: registeredCount,
+            approved: approvedCount,
+            pending: pendingCount,
+          },
+          status: "Completed",
+        }
+      })
+    }
+    
+    // Calculate stats
+    const totalEvents = (activeEventsData?.length || 0) + (pastEventsData?.length || 0)
+    const totalParticipants = registrationsData?.length || 0
+    const activeEventsCount = activeEventsData?.length || 0
+    
+    // Sum up prize money (ensure it's a valid number, otherwise use 0)
+    let totalPrizeMoney = 0
+    const allEvents = [...(activeEventsData || []), ...(pastEventsData || [])]
+    allEvents.forEach(event => {
+      if (event.prize_money) {
+        const moneyValue = parseFloat(event.prize_money.replace(/[^0-9.-]+/g, ""))
+        if (!isNaN(moneyValue)) {
+          totalPrizeMoney += moneyValue
+        }
+      }
+    })
+    
+    // Format prize money with '$' prefix and commas
+    const formattedPrizeMoney = '$' + totalPrizeMoney.toLocaleString()
+    
+    // Update stats
+    stats = [
+      { title: "Total Hackathons", value: totalEvents.toString(), icon: Calendar },
+      { title: "Total Participants", value: totalParticipants.toString(), icon: Users },
+      { title: "Active Events", value: activeEventsCount.toString(), icon: Clock },
+      { title: "Prize Money Awarded", value: formattedPrizeMoney, icon: Trophy },
+    ]
+    
   } catch (err: any) {
-    console.error("Error fetching organizer data:", err) // Updated error message
-    profileError = "Failed to load organizer profile data."
+    console.error("Error fetching data:", err)
+    profileError = "Failed to load organizer data."
+    eventsError = "Failed to load events data."
   }
-
-   // --- Mock Data (Replace with actual Supabase fetches for hackathons created by this user) ---
-     const activeHackathons = [
-    {
-      id: "1",
-      title: "AI Innovation Challenge",
-      description: "Build the next generation of AI-powered applications",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "May 15-17, 2025",
-      location: "Online",
-      registrationDeadline: "Apr 30, 2025",
-      participants: {
-        registered: 120,
-        approved: 98,
-        pending: 22,
-      },
-      status: "Registration Open",
-    },
-    {
-      id: "2",
-      title: "Web3 Hackathon",
-      description: "Create decentralized applications that shape the future",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "Jun 5-7, 2025",
-      location: "San Francisco, CA",
-      registrationDeadline: "May 20, 2025",
-      participants: {
-        registered: 85,
-        approved: 70,
-        pending: 15,
-      },
-      status: "Registration Open",
-    },
-  ]
-
-  const pastHackathons = [
-    {
-      id: "3",
-      title: "Mobile App Challenge",
-      description: "Design innovative mobile applications",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "Mar 10-12, 2025",
-      location: "Online",
-      registrationDeadline: "Feb 28, 2025",
-      participants: {
-        registered: 150,
-        approved: 130,
-        pending: 0,
-      },
-      status: "Completed",
-    },
-  ]
-
-  const stats = [
-    {
-      title: "Total Hackathons",
-      value: "3",
-      icon: Calendar,
-    },
-    {
-      title: "Total Participants",
-      value: "355",
-      icon: Users,
-    },
-    {
-      title: "Active Events",
-      value: "2",
-      icon: Clock,
-    },
-    {
-      title: "Prize Money Awarded",
-      value: "$15,000",
-      icon: Trophy,
-    },
-  ]
-   // --- End Mock Data ---
 
   return (
     // Removed DashboardAuthWrapper
@@ -139,7 +221,7 @@ export default async function OrganizerDashboardPage() {
             <div className="flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight">Organizer Dashboard</h1>
-                <Link href="/organizer/create-event"> {/* Updated link */}
+                <Link href="/organizer/create-event">
                   <Button className="gap-1">
                     <Plus className="h-4 w-4" />
                     Create Hackathon
@@ -164,6 +246,13 @@ export default async function OrganizerDashboardPage() {
                   ))}
                </div>
 
+              {/* Error message for events if needed */}
+              {eventsError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700 mb-6">
+                  <p>{eventsError}</p>
+                </div>
+              )}
+
                {/* Hackathon Tabs */}
               <Tabs defaultValue="active" className="w-full">
                 <TabsList>
@@ -171,8 +260,8 @@ export default async function OrganizerDashboardPage() {
                   <TabsTrigger value="past">Past Hackathons</TabsTrigger>
                 </TabsList>
                 <TabsContent value="active" className="space-y-4 pt-4">
-                  {activeHackathons.length > 0 ? (
-                    activeHackathons.map((hackathon) => (
+                  {activeEvents.length > 0 ? (
+                    activeEvents.map((hackathon) => (
                       <HackathonCard key={hackathon.id} hackathon={hackathon} />
                     ))
                   ) : (
@@ -180,8 +269,8 @@ export default async function OrganizerDashboardPage() {
                   )}
                 </TabsContent>
                 <TabsContent value="past" className="space-y-4 pt-4">
-                 {pastHackathons.length > 0 ? (
-                    pastHackathons.map((hackathon) => (
+                 {pastEvents.length > 0 ? (
+                    pastEvents.map((hackathon) => (
                       <HackathonCard key={hackathon.id} hackathon={hackathon} isPast />
                     ))
                  ) : (
@@ -191,21 +280,18 @@ export default async function OrganizerDashboardPage() {
               </Tabs>
 
               {/* Organizer Info */}
-               {organizerProfile && ( // Check if organizerProfile data was successfully fetched
+               {organizerProfile && (
                     <Card>
                         <CardHeader>
                             <CardTitle>Organization Info</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {/* Display the organizer's name from the organizers table */}
                             {organizerProfile.name && <p className="mb-1"><span className="font-medium">Contact Name:</span> {organizerProfile.name}</p>}
-                            {/* Display the organization name from the organizers table */}
                             {organizerProfile.organization_name && <p className="mb-1"><span className="font-medium">Organization:</span> {organizerProfile.organization_name}</p>}
-                            {/* Display the website from the organizers table */}
                             {organizerProfile.organization_website && <p><span className="font-medium">Website:</span> <a href={organizerProfile.organization_website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{organizerProfile.organization_website}</a></p>}
                         </CardContent>
                          <CardFooter>
-                             <Link href="/organizer/profile"> {/* Link to the organizer's profile editing page */}
+                             <Link href="/organizer/profile">
                                 <Button variant="outline" size="sm">Edit Profile</Button>
                             </Link>
                         </CardFooter>
@@ -219,7 +305,7 @@ export default async function OrganizerDashboardPage() {
   )
 }
 
-// HackathonCard Component (Keep as is, including OrganizerHackathon interface)
+// HackathonCard Component
 interface OrganizerHackathon {
   id: string
   title: string
@@ -329,12 +415,12 @@ function HackathonCard({ hackathon, isPast = false }: {
               </span>
             </div>
             <div className="flex gap-2">
-              <Link href={`/organizer/registrations/${hackathon.id}`}> {/* Updated link */}
+              <Link href={`/organizer/registrations/${hackathon.id}`}>
                 <Button variant="outline" size="sm">
                   <Users className="mr-2 h-4 w-4" /> Manage Registrations
                 </Button>
               </Link>
-               <Link href={`/organizer/dashboard/${hackathon.id}`}> {/* Link to event dashboard */}
+               <Link href={`/organizer/dashboard/${hackathon.id}`}>
                  <Button size="sm">
                     <BarChart3 className="mr-2 h-4 w-4" /> Dashboard
                  </Button>
