@@ -3,11 +3,11 @@ import Link from "next/link";
 import {
   Calendar,
   Clock,
-  Code,
   ExternalLink,
   MapPin,
   MoreHorizontal,
   Users,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,8 +20,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 const iconMap = {
   Calendar,
   Clock,
-  Code, 
   Users,
+  Award,
   ExternalLink,
   MapPin,
   MoreHorizontal
@@ -41,7 +41,7 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
     return (
         <div className="flex min-h-screen flex-col">
             <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="container flex h-16 items-center justify-between">
+                <div className="max-w-screen-xl mx-auto w-full px-4 sm:px-6 lg:px-8">
                     <SiteHeader />
                 </div>
             </header>
@@ -49,7 +49,7 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
             {/* Main content */}
             <main className="flex-1 w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
                 {fetchError ? ( // Changed variable name to fetchError
-                    <div className="container py-8">
+                    <div className="py-8">
                         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700 mb-6">
                             <p>{fetchError}</p>
                             {/* Added buttons based on example error state */}
@@ -73,7 +73,7 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
                                 </Link>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                 {stats.map((stat, index) => {
                                     // Get the icon component based on the iconName
                                     const IconComponent = iconMap[stat.iconName as keyof typeof iconMap];
@@ -196,7 +196,7 @@ function EventCard({ event, isCompleted = false }: {
                                 )}
                                 {isCompleted && (
                                     <DropdownMenuItem asChild>
-                                        <Link href={`/projects?event=${event.id}`}>View Projects</Link>
+                                        <Link href={`/events/${event.id}/certificate`}>View Certificate</Link>
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem asChild>
@@ -243,7 +243,7 @@ function EventCard({ event, isCompleted = false }: {
                         </div>
                         <Link href={`/events/${event.id}`}>
                             <Button variant="outline" size="sm">
-                                {isCompleted ? "View Results" : "Manage Registration"}
+                                {isCompleted ? "View Details" : "Manage Registration"}
                             </Button>
                         </Link>
                     </div>

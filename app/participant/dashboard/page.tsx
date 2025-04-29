@@ -55,7 +55,6 @@ export default async function ParticipantDashboardPage() {
         { title: "Events Joined", value: "3", iconName: "Calendar" },
         { title: "Upcoming Events", value: "2", iconName: "Clock" },
         { title: "Team Members", value: "7", iconName: "Users" },
-        { title: "Projects Built", value: "4", iconName: "Code" },
     ];
     // --- End Mock Data ---
 
