@@ -55,12 +55,12 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
-
+    
     if (fetchProfileError) {
       console.error("Error fetching participant profile:", fetchProfileError);
       return { success: false, error: "Could not verify your participant profile." };
     }
-
+    
     const skillsArray = formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(s => s) : [];
 
     if (!participantProfile) {
@@ -74,12 +74,12 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
           skills: skillsArray,
           // bio, avatar_url are initially null
         });
-
+      
       if (createProfileError) {
         console.error("Failed to create participant profile:", createProfileError);
         return { success: false, error: "Failed to create your participant profile." };
       }
-    } else {
+      } else {
       // Optionally: Update existing participant's skills if they changed in the form?
       // For simplicity, we'll skip updates during registration for now.
       // Profile updates should ideally happen on a dedicated profile page.
@@ -91,15 +91,15 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
       .from("events")
       .select("registration_fee, min_team_size, max_team_size")
       .eq("id", eventId)
-      .single();
-
+          .single();
+        
     if (eventError || !event) {
       console.error("Error fetching event details for registration:", eventError);
       return { success: false, error: "Could not retrieve event details." };
-    }
+        }
     const eventAllowsTeams = (event.max_team_size ?? 1) > 1;
     const isFreeEvent = !event.registration_fee || Number(event.registration_fee) <= 0;
-
+        
     // 5. Handle Team Logic (only if event allows teams)
     let teamId: string | null = null;
     if (eventAllowsTeams && formData.teamStatus === "have-team") {
@@ -113,12 +113,12 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
         return { success: false, error: teamError || "Failed to process team information." };
       }
       teamId = team.id;
-
+        
       // Add participant to the team (if not already creator/member)
       await ensureTeamMembership(supabase, teamId, participantId);
 
       // Handle potential invites (logging only for now)
-      if (formData.teamMembers) {
+        if (formData.teamMembers) {
         handlePotentialInvites(formData.teamMembers, user.email || '');
       }
     }
@@ -139,7 +139,7 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
       })
       .select('id')
       .single();
-
+    
     if (registrationError || !newRegistration) {
       console.error("Failed to create registration record:", registrationError);
       // Check for unique constraint violation (maybe they registered *just* now in another tab?)
@@ -267,7 +267,7 @@ function generateTeamCode(): string {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
   return result;
-}
+} 
 
 // Placeholder for potential future screenshot upload logic
 // import { decode } from 'base64-arraybuffer';

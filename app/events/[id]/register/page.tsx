@@ -166,7 +166,7 @@ export default function EventRegistrationPage({
     if (currentStep === index + 1) return index + 1; // Confirmation
     return 1; // Default
   };
-  
+
   const handleNextStep = () => {
     // Basic validation before moving
     const currentStepIndex = getCurrentStepIndex();
@@ -287,7 +287,7 @@ export default function EventRegistrationPage({
       reader.readAsDataURL(file);
     }
   };
-  
+
   // Show loading state
   if (loading) {
     return (
@@ -370,7 +370,7 @@ export default function EventRegistrationPage({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
+          <SiteHeader />
       <main className="flex-1">
         <div className="container py-8">
           <div className="flex flex-col gap-8">
@@ -451,52 +451,52 @@ Please provide your contact details and relevant skills.
                           <CardDescription>Let us know if you're joining solo, with a team, or looking for one.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <RadioGroup 
+                            <RadioGroup 
                              value={formData.teamStatus || "looking"} 
-                             onValueChange={(value) => handleRadioChange("teamStatus", value)}
+                              onValueChange={(value) => handleRadioChange("teamStatus", value)}
                              className="space-y-2"
-                           >
+                            >
                              <Label>How are you participating?</Label>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="have-team" id="have-team" />
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="have-team" id="have-team" />
                               <Label htmlFor="have-team" className="font-normal">I already have a team</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="looking" id="looking" />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="looking" id="looking" />
                               <Label htmlFor="looking" className="font-normal">I'm looking to join a team</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="solo" id="solo" />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="solo" id="solo" />
                               <Label htmlFor="solo" className="font-normal">I plan to participate solo</Label>
-                            </div>
-                          </RadioGroup>
+                              </div>
+                            </RadioGroup>
 
                           {/* Fields shown when 'have-team' is selected */}
                           {formData.teamStatus === "have-team" && (
                             <>
                               <div className="space-y-2 pt-4">
                                 <Label htmlFor="teamName">Team Name</Label>
-                                <Input 
-                                  id="teamName" 
+                            <Input 
+                              id="teamName" 
                                   placeholder="Enter your team's name" 
                                   value={formData.teamName || ""}
-                                  onChange={handleInputChange}
+                              onChange={handleInputChange}
                                   required={formData.teamStatus === "have-team"}
-                                />
-                              </div>
-                              <div className="space-y-2">
+                            />
+                          </div>
+                          <div className="space-y-2">
                                 <Label htmlFor="teamMembers">Team Members (Optional)</Label>
-                                <Textarea
-                                  id="teamMembers"
+                            <Textarea
+                              id="teamMembers"
                                   placeholder="List emails of members already in your team (one per line or comma separated). They still need to register."
-                                  className="min-h-24"
+                              className="min-h-24"
                                   value={formData.teamMembers || ""}
-                                  onChange={handleInputChange}
-                                />
-                                 <p className="text-xs text-muted-foreground">
+                              onChange={handleInputChange}
+                            />
+                            <p className="text-xs text-muted-foreground">
                                    Team Size: {event.min_team_size || 1} - {event.max_team_size} members.
-                                </p>
-                              </div>
+                            </p>
+                          </div>
                             </>
                           )}
 
@@ -504,15 +504,15 @@ Please provide your contact details and relevant skills.
                           {formData.teamStatus === "looking" && (
                             <div className="space-y-2 pt-4">
                               <Label htmlFor="lookingFor">What are you looking for in teammates?</Label>
-                              <Textarea
-                                id="lookingFor"
+                            <Textarea
+                              id="lookingFor"
                                 placeholder="Describe skills, roles, or ideas you're interested in (e.g., Backend Developer, UI/UX Designer)"
-                                className="min-h-24"
+                              className="min-h-24"
                                 value={formData.lookingFor || ""}
-                                onChange={handleInputChange}
+                              onChange={handleInputChange}
                                 required={formData.teamStatus === "looking"}
-                              />
-                            </div>
+                            />
+                          </div>
                           )}
                         </CardContent>
                         <CardFooter className="flex justify-between">
@@ -543,13 +543,13 @@ Please provide your contact details and relevant skills.
                           <div className="rounded-lg border p-6 text-center">
                             <h3 className="text-lg font-medium mb-4">Scan QR Code or use UPI ID</h3>
                             {event.qr_code_url && (
-                              <div className="flex justify-center mb-4">
-                                <img
+                            <div className="flex justify-center mb-4">
+                              <img
                                   src={event.qr_code_url}
-                                  alt="Payment QR Code"
+                                alt="Payment QR Code"
                                   className="h-64 w-64 object-contain border rounded-md"
-                                />
-                              </div>
+                              />
+                            </div>
                             )}
                             <div className="text-sm text-muted-foreground mb-4">
                               {event.upi_id && <p>UPI ID: {event.upi_id}</p>}
@@ -692,7 +692,7 @@ Please provide your contact details and relevant skills.
                     {event.banner_image && (
                       <div className="aspect-video relative overflow-hidden rounded-md bg-muted">
                         <img src={event.banner_image} alt={event.name} className="w-full h-full object-cover" />
-                      </div>
+                    </div>
                     )}
                     <h3 className="text-xl font-semibold pt-2">{event.name}</h3>
                     {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
@@ -714,7 +714,7 @@ Please provide your contact details and relevant skills.
                         <div className="flex items-center">
                           <Users className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <span>Team Size: {event.min_team_size || 1} - {event.max_team_size || 4} members</span>
-                        </div>
+                      </div>
                       )}
                     </div>
                     <Separator />
