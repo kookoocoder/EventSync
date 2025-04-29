@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, type FormEvent, type ChangeEvent } from "react"
+import { useState, type FormEvent, type ChangeEvent, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users } from "lucide-react"
+import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users, AlertTriangle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,11 +12,14 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { SiteHeader } from "@/components/SiteHeader"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { toast } from "@/components/ui/use-toast"
+import { format } from "date-fns"
+import { registerForEvent, type RegistrationFormData } from "./actions"
+import createClient from "@/lib/supabase/client"
 
-export default function HackathonRegistrationPage({ 
+export default function EventRegistrationPage({ 
   params 
 }: { 
   params: { id: string } 
@@ -26,20 +29,57 @@ export default function HackathonRegistrationPage({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentComplete, setPaymentComplete] = useState(false)
   const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null)
+  const [event, setEvent] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [formData, setFormData] = useState<Partial<RegistrationFormData>>({
+    fullName: "",
+    email: "",
+    phone: "",
+    skills: "",
+    experience: "some",
+    motivation: "",
+    teamStatus: "looking",
+    teamName: "",
+    teamMembers: "",
+    lookingFor: "",
+    transactionId: "",
+  })
 
-  // Mock hackathon data - in a real app, you would fetch this based on the ID
-  const hackathon = {
-    id: params.id,
-    title: "AI Innovation Challenge",
-    description: "Build the next generation of AI-powered applications",
-    image: "/placeholder.svg?height=400&width=600",
-    date: "May 15-17, 2025",
-    location: "Online",
-    registrationDeadline: "Apr 30, 2025",
-    registrationFee: 25,
-    upiId: "organizer@upi",
-    qrCodeImage: "/placeholder.svg?height=300&width=300",
-    maxTeamSize: 5,
+  // Fetch event data
+  useEffect(() => {
+    const fetchEvent = async () => {
+      setLoading(true)
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("events")
+          .select("*")
+          .eq("id", params.id)
+          .single()
+        
+        if (error) throw error
+        if (!data) throw new Error("Event not found")
+        
+        setEvent(data)
+      } catch (err: any) {
+        console.error("Error fetching event:", err)
+        setError(err.message || "Failed to load event")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchEvent()
+  }, [params.id])
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target
+    setFormData((prev) => ({ ...prev, [id]: value }))
+  }
+
+  const handleRadioChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleNextStep = () => {
@@ -52,15 +92,50 @@ export default function HackathonRegistrationPage({
     window.scrollTo(0, 0)
   }
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    
+    if (!paymentScreenshot) {
+      toast({
+        title: "Payment verification required",
+        description: "Please upload a screenshot of your payment to continue.",
+        variant: "destructive",
+      })
+      return
+    }
+    
     setIsSubmitting(true)
 
-    // Simulate form submission - in a real app, this would be an API call
-    setTimeout(() => {
-      setIsSubmitting(false)
+    try {
+      // Prepare complete form data with payment screenshot
+      const completeFormData: RegistrationFormData = {
+        ...formData as RegistrationFormData,
+        paymentScreenshot: paymentScreenshot,
+      }
+      
+      const result = await registerForEvent(params.id, completeFormData)
+      
+      if (!result.success) {
+        throw new Error(result.error || "Registration failed")
+      }
+      
+      toast({
+        title: "Registration submitted",
+        description: "Your registration has been submitted. You'll receive a confirmation email once it's approved.",
+      })
+      
+      // Redirect to dashboard after successful registration
       router.push("/participant/dashboard")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Registration error:", error)
+      toast({
+        title: "Registration failed",
+        description: error.message || "Something went wrong. Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -81,6 +156,51 @@ export default function HackathonRegistrationPage({
     handleNextStep()
   }
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin h-8 w-8 border-t-2 border-primary rounded-full mx-auto mb-4"></div>
+            <p>Loading event information...</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error || !event) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="flex-1">
+          <div className="container py-8">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {error || "This event could not be found. It may have been removed or you may have followed an invalid link."}
+              </AlertDescription>
+            </Alert>
+            <div className="mt-4">
+              <Button asChild>
+                <Link href="/">Return to Homepage</Link>
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "TBA"
+    return format(new Date(dateString), "MMMM d, yyyy")
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
           <SiteHeader />
@@ -88,12 +208,12 @@ export default function HackathonRegistrationPage({
         <div className="container py-8">
           <div className="flex flex-col gap-8">
             <div className="flex items-center">
-              <Link href={`/hackathons/${params.id}`} className="mr-4">
+              <Link href={`/events/${params.id}`} className="mr-4">
                 <Button variant="ghost" size="icon">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
-              <h1 className="text-3xl font-bold tracking-tight">Register for {hackathon.title}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Register for {event.name}</h1>
             </div>
 
             <div className="flex justify-between mb-8">
@@ -146,21 +266,41 @@ export default function HackathonRegistrationPage({
                         <CardHeader>
                           <CardTitle>Personal Information</CardTitle>
                           <CardDescription>
-                            Tell us about yourself so we can register you for the hackathon
+                            Tell us about yourself so we can register you for the event
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="name">Full Name</Label>
-                            <Input id="name" placeholder="John Doe" required />
+                            <Label htmlFor="fullName">Full Name</Label>
+                            <Input 
+                              id="fullName" 
+                              placeholder="John Doe" 
+                              required 
+                              value={formData.fullName}
+                              onChange={handleInputChange}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="email">Email Address</Label>
-                            <Input id="email" type="email" placeholder="john@example.com" required />
+                            <Input 
+                              id="email" 
+                              type="email" 
+                              placeholder="john@example.com" 
+                              required 
+                              value={formData.email}
+                              onChange={handleInputChange}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="phone">Phone Number</Label>
-                            <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" required />
+                            <Input 
+                              id="phone" 
+                              type="tel" 
+                              placeholder="+1 (555) 123-4567" 
+                              required 
+                              value={formData.phone}
+                              onChange={handleInputChange}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="skills">Skills & Expertise</Label>
@@ -169,11 +309,16 @@ export default function HackathonRegistrationPage({
                               placeholder="List your technical skills, programming languages, and areas of expertise"
                               className="min-h-24"
                               required
+                              value={formData.skills}
+                              onChange={handleInputChange}
                             />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="experience">Previous Hackathon Experience</Label>
-                            <RadioGroup defaultValue="some">
+                            <RadioGroup 
+                              value={formData.experience} 
+                              onValueChange={(value) => handleRadioChange("experience", value)}
+                            >
                               <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="none" id="none" />
                                 <Label htmlFor="none" className="font-normal">
@@ -198,9 +343,11 @@ export default function HackathonRegistrationPage({
                             <Label htmlFor="motivation">Why do you want to participate?</Label>
                             <Textarea
                               id="motivation"
-                              placeholder="Tell us why you're interested in this hackathon and what you hope to achieve"
+                              placeholder="Tell us why you're interested in this event and what you hope to achieve"
                               className="min-h-24"
                               required
+                              value={formData.motivation}
+                              onChange={handleInputChange}
                             />
                           </div>
                         </CardContent>
@@ -216,12 +363,15 @@ export default function HackathonRegistrationPage({
                       <>
                         <CardHeader>
                           <CardTitle>Team Preference</CardTitle>
-                          <CardDescription>Let us know your team status for this hackathon</CardDescription>
+                          <CardDescription>Let us know your team status for this event</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="space-y-2">
                             <Label htmlFor="team-status">Team Status</Label>
-                            <RadioGroup defaultValue="looking">
+                            <RadioGroup 
+                              value={formData.teamStatus} 
+                              onValueChange={(value) => handleRadioChange("teamStatus", value)}
+                            >
                               <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="have-team" id="have-team" />
                                 <Label htmlFor="have-team" className="font-normal">
@@ -244,31 +394,43 @@ export default function HackathonRegistrationPage({
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="team-name">Team Name (if you have a team)</Label>
-                            <Input id="team-name" placeholder="Awesome Hackers" />
+                            <Label htmlFor="teamName">Team Name (if you have a team)</Label>
+                            <Input 
+                              id="teamName" 
+                              placeholder="Awesome Hackers" 
+                              value={formData.teamName}
+                              onChange={handleInputChange}
+                              disabled={formData.teamStatus !== "have-team"}
+                            />
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="team-members">Team Members (if you have a team)</Label>
+                            <Label htmlFor="teamMembers">Team Members (if you have a team)</Label>
                             <Textarea
-                              id="team-members"
-                              placeholder="List the names and email addresses of your team members"
+                              id="teamMembers"
+                              placeholder="List the email addresses of your team members (one per line)"
                               className="min-h-24"
+                              value={formData.teamMembers}
+                              onChange={handleInputChange}
+                              disabled={formData.teamStatus !== "have-team"}
                             />
                             <p className="text-xs text-muted-foreground">
                               Note: Each team member must register individually. Maximum team size:{" "}
-                              {hackathon.maxTeamSize} members.
+                              {event.max_team_size || 4} members.
                             </p>
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="looking-for">
+                            <Label htmlFor="lookingFor">
                               What kind of teammates are you looking for? (if looking to join a team)
                             </Label>
                             <Textarea
-                              id="looking-for"
+                              id="lookingFor"
                               placeholder="Describe the skills or roles you're looking for in potential teammates"
                               className="min-h-24"
+                              value={formData.lookingFor}
+                              onChange={handleInputChange}
+                              disabled={formData.teamStatus !== "looking"}
                             />
                           </div>
                         </CardContent>
@@ -294,7 +456,7 @@ export default function HackathonRegistrationPage({
                             <Info className="h-4 w-4" />
                             <AlertTitle>Registration Fee</AlertTitle>
                             <AlertDescription>
-                              This hackathon has a registration fee of ${hackathon.registrationFee}. Please complete the
+                              This event has a registration fee of ${event.registration_fee || 0}. Please complete the
                               payment to confirm your registration.
                             </AlertDescription>
                           </Alert>
@@ -303,14 +465,14 @@ export default function HackathonRegistrationPage({
                             <h3 className="text-lg font-medium mb-4">Scan QR Code to Pay</h3>
                             <div className="flex justify-center mb-4">
                               <img
-                                src={hackathon.qrCodeImage || "/placeholder.svg"}
+                                src={event.qr_code_url || "/placeholder.svg"}
                                 alt="Payment QR Code"
                                 className="h-64 w-64 object-contain"
                               />
                             </div>
                             <div className="text-sm text-muted-foreground mb-4">
-                              <p>UPI ID: {hackathon.upiId}</p>
-                              <p>Amount: ${hackathon.registrationFee}</p>
+                              <p>UPI ID: {event.upi_id || "organizer@upi"}</p>
+                              <p>Amount: ${event.registration_fee || 0}</p>
                             </div>
                             <Button type="button" variant="outline" className="w-full" onClick={handlePaymentComplete}>
                               I've Completed the Payment
@@ -336,7 +498,7 @@ export default function HackathonRegistrationPage({
                               >
                                 {paymentScreenshot ? (
                                   <img
-                                    src={paymentScreenshot || "/placeholder.svg"}
+                                    src={paymentScreenshot}
                                     alt="Payment Screenshot"
                                     className="h-full w-full object-contain p-2"
                                   />
@@ -366,8 +528,13 @@ export default function HackathonRegistrationPage({
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor="transaction-id">Transaction ID (Optional)</Label>
-                            <Input id="transaction-id" placeholder="Enter the transaction ID if available" />
+                            <Label htmlFor="transactionId">Transaction ID (Optional)</Label>
+                            <Input 
+                              id="transactionId" 
+                              placeholder="Enter the transaction ID if available" 
+                              value={formData.transactionId}
+                              onChange={handleInputChange}
+                            />
                           </div>
 
                           <Alert className="bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200">
@@ -393,40 +560,40 @@ export default function HackathonRegistrationPage({
                 </Card>
               </div>
 
-              {/* Hackathon Info Sidebar */}
+              {/* Event Info Sidebar */}
               <div className="md:col-span-1">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Hackathon Details</CardTitle>
+                    <CardTitle>Event Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="aspect-video relative overflow-hidden rounded-md">
                       <img
-                        src={hackathon.image || "/placeholder.svg"}
-                        alt={hackathon.title}
+                        src={event.banner_image || "/placeholder.svg"}
+                        alt={event.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
 
-                    <h3 className="text-xl font-bold">{hackathon.title}</h3>
-                    <p className="text-sm text-muted-foreground">{hackathon.description}</p>
+                    <h3 className="text-xl font-bold">{event.name}</h3>
+                    <p className="text-sm text-muted-foreground">{event.description}</p>
 
                     <div className="space-y-2">
                       <div className="flex items-center text-sm">
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>{hackathon.date}</span>
+                        <span>{formatDate(event.start_date)} - {formatDate(event.end_date)}</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>{hackathon.location}</span>
+                        <span>{event.location || "TBA"}</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Registration Fee: ${hackathon.registrationFee}</span>
+                        <span>Registration Fee: ${event.registration_fee || 0}</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Max Team Size: {hackathon.maxTeamSize}</span>
+                        <span>Max Team Size: {event.max_team_size || 4}</span>
                       </div>
                     </div>
 
@@ -434,7 +601,7 @@ export default function HackathonRegistrationPage({
                       <h3 className="font-medium mb-2">Registration Deadline</h3>
                       <div className="flex items-center text-sm">
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>{hackathon.registrationDeadline}</span>
+                        <span>{formatDate(event.registration_end_date)}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -446,10 +613,10 @@ export default function HackathonRegistrationPage({
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground mb-4">
-                      If you have any questions about the registration process or the hackathon, please contact us.
+                      If you have any questions about the registration process or the event, please contact us.
                     </p>
-                    <Button variant="outline" className="w-full">
-                      Contact Support
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link href="/contact">Contact Support</Link>
                     </Button>
                   </CardContent>
                 </Card>
