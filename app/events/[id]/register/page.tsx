@@ -4,6 +4,7 @@ import { useState, type FormEvent, type ChangeEvent, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users, AlertTriangle } from "lucide-react"
+import React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,148 +15,279 @@ import { Textarea } from "@/components/ui/textarea"
 import { SiteHeader } from "@/components/SiteHeader"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { registerForEvent, type RegistrationFormData } from "./actions"
 import createClient from "@/lib/supabase/client"
+
+// Define the structure for the event data we expect
+interface EventData {
+  id: string;
+  name: string;
+  description?: string | null;
+  start_date: string;
+  end_date: string;
+  location?: string | null;
+  registration_fee?: number | null;
+  min_team_size?: number | null;
+  max_team_size?: number | null;
+  registration_end_date?: string | null;
+  banner_image?: string | null;
+  upi_id?: string | null;
+  qr_code_url?: string | null;
+}
 
 export default function EventRegistrationPage({ 
   params 
 }: { 
   params: { id: string } 
 }) {
+  // Use React.use to unwrap the params promise
+  const resolvedParams = React.use(params);
+  const eventId = resolvedParams.id;
+  
   const router = useRouter()
+  const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentComplete, setPaymentComplete] = useState(false)
   const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null)
-  const [event, setEvent] = useState<any>(null)
+  const [event, setEvent] = useState<EventData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Updated formData state to reflect simplified fields
   const [formData, setFormData] = useState<Partial<RegistrationFormData>>({
     fullName: "",
     email: "",
     phone: "",
-    skills: "",
-    experience: "some",
-    motivation: "",
-    teamStatus: "looking",
+    skills: "", // Still collect for participant profile
+    teamStatus: "solo", // Default to solo
     teamName: "",
     teamMembers: "",
     lookingFor: "",
     transactionId: "",
+    // Removed experience, motivation
   })
+
+  // Determine if the event allows teams
+  const eventAllowsTeams = event && (event.max_team_size ?? 1) > 1;
+  // Determine if event requires payment
+  const isFreeEvent = !event?.registration_fee || Number(event.registration_fee) <= 0;
+
+  // Calculate total steps dynamically
+  const calculateTotalSteps = () => {
+    let steps = 1; // Personal Info
+    if (eventAllowsTeams) steps++; // Team Preference
+    if (!isFreeEvent) steps += 2; // Payment + Verification
+    steps++; // Confirmation
+    return steps;
+  };
+
+  const totalSteps = event ? calculateTotalSteps() : 2; // Initial estimate before event loads
 
   // Fetch event data
   useEffect(() => {
     const fetchEvent = async () => {
-      setLoading(true)
+      setLoading(true);
+      setError(null);
       try {
-        const supabase = createClient()
-        const { data, error } = await supabase
+        const supabase = createClient();
+        const { data, error: dbError } = await supabase
           .from("events")
-          .select("*")
-          .eq("id", params.id)
-          .single()
+          .select("id, name, description, start_date, end_date, location, registration_fee, min_team_size, max_team_size, registration_end_date, banner_image, upi_id, qr_code_url")
+          .eq("id", eventId)
+          .single();
         
-        if (error) throw error
-        if (!data) throw new Error("Event not found")
+        if (dbError) throw dbError;
+        if (!data) throw new Error("Event not found");
         
-        setEvent(data)
-      } catch (err: any) {
-        console.error("Error fetching event:", err)
-        setError(err.message || "Failed to load event")
-      } finally {
-        setLoading(false)
-      }
-    }
+        setEvent(data as EventData);
+        
+        // Auto-complete payment for free events
+        if (!data.registration_fee || Number(data.registration_fee) <= 0) {
+          setPaymentComplete(true);
+        }
 
-    fetchEvent()
-  }, [params.id])
+        // Set initial team status based on event config
+        if (!((data.max_team_size ?? 1) > 1)) {
+          setFormData(prev => ({ ...prev, teamStatus: 'solo' }));
+        } else {
+          // If teams are allowed, default might be looking or solo based on preference
+          setFormData(prev => ({ ...prev, teamStatus: 'looking' })); 
+        }
+
+      } catch (err: any) {
+        console.error("Error fetching event:", err);
+        setError(err.message || "Failed to load event details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvent();
+    
+    // Authentication check
+    const checkAuth = async () => {
+      const supabase = createClient();
+      const { data, error: authError } = await supabase.auth.getSession();
+      
+      if (authError || !data.session) {
+        sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+        router.push('/login?message=Please log in to register for the event');
+      }
+    };
+    
+    checkAuth();
+  }, [eventId, router]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target
-    setFormData((prev) => ({ ...prev, [id]: value }))
-  }
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
 
   const handleRadioChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
+  // --- Navigation Logic --- 
+  const getCurrentStepIndex = () => {
+    if (currentStep === 1) return 1; // Personal Info
+    let index = 1;
+    if (eventAllowsTeams) {
+      if (currentStep === 2) return 2; // Team Info
+      index++;
+    }
+    if (!isFreeEvent) {
+      if (currentStep === index + 1) return index + 1; // Payment
+      if (currentStep === index + 2) return index + 2; // Verification
+      index += 2;
+    }
+    if (currentStep === index + 1) return index + 1; // Confirmation
+    return 1; // Default
+  };
+  
   const handleNextStep = () => {
-    setCurrentStep(currentStep + 1)
-    window.scrollTo(0, 0)
-  }
+    // Basic validation before moving
+    const currentStepIndex = getCurrentStepIndex();
+    if (currentStepIndex === 1) { // Personal Info
+      if (!formData.fullName || !formData.email || !formData.phone || !formData.skills) {
+        toast({ title: "Missing Information", description: "Please fill in all personal information fields.", variant: "destructive" });
+        return;
+      }
+    }
+    if (currentStepIndex === 2 && eventAllowsTeams) { // Team Info
+      if (formData.teamStatus === "have-team" && !formData.teamName) {
+        toast({ title: "Missing Team Name", description: "Please enter your team name.", variant: "destructive" });
+        return;
+      }
+      if (formData.teamStatus === "looking" && !formData.lookingFor) {
+         toast({ title: "Describe Teammates", description: "Please describe the teammates you are looking for.", variant: "destructive" });
+         return;
+       }
+    }
+
+    // Determine the next step index
+    let nextStepIndex = currentStepIndex + 1;
+    if (currentStepIndex === 1 && !eventAllowsTeams) { // Skip team step
+      nextStepIndex++;
+    }
+    if (currentStepIndex === (eventAllowsTeams ? 2 : 1) && isFreeEvent) { // Skip payment steps
+       nextStepIndex = totalSteps; // Go directly to confirmation
+    }
+    // Add logic for skipping payment verification if payment step is completed automatically?
+    // For now, handlePaymentComplete moves to next step manually.
+
+    setCurrentStep(nextStepIndex);
+    window.scrollTo(0, 0);
+  };
 
   const handlePreviousStep = () => {
-    setCurrentStep(currentStep - 1)
-    window.scrollTo(0, 0)
-  }
+    const currentStepIndex = getCurrentStepIndex();
+    let previousStepIndex = currentStepIndex - 1;
 
+    if (currentStepIndex === totalSteps && isFreeEvent) { // Coming back from confirmation (free event)
+        previousStepIndex = eventAllowsTeams ? 2 : 1; // Go back to Team or Personal Info
+    }
+     if (currentStepIndex === (eventAllowsTeams ? 3 : 2) && !eventAllowsTeams) { // Skip team step when going back from payment/confirmation
+       previousStepIndex--;
+     }
+
+    setCurrentStep(previousStepIndex > 0 ? previousStepIndex : 1);
+    window.scrollTo(0, 0);
+  };
+  
+  const handlePaymentComplete = () => {
+    setPaymentComplete(true);
+    // Move to the next step (Verification)
+    const currentStepIndex = getCurrentStepIndex();
+    setCurrentStep(currentStepIndex + 1);
+    window.scrollTo(0, 0);
+  };
+
+  // --- Submission Logic --- 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     
-    if (!paymentScreenshot) {
-      toast({
-        title: "Payment verification required",
-        description: "Please upload a screenshot of your payment to continue.",
-        variant: "destructive",
-      })
-      return
+    if (!isFreeEvent && !paymentScreenshot) {
+      toast({ title: "Payment Verification Required", description: "Please upload a screenshot of your payment.", variant: "destructive" });
+      return;
     }
     
-    setIsSubmitting(true)
+    setIsSubmitting(true);
+    setError(null);
 
     try {
-      // Prepare complete form data with payment screenshot
       const completeFormData: RegistrationFormData = {
-        ...formData as RegistrationFormData,
-        paymentScreenshot: paymentScreenshot,
-      }
+        fullName: formData.fullName || "",
+        email: formData.email || "",
+        phone: formData.phone || "",
+        skills: formData.skills || "",
+        teamStatus: eventAllowsTeams ? (formData.teamStatus || 'solo') : 'solo',
+        teamName: eventAllowsTeams && formData.teamStatus === 'have-team' ? formData.teamName : undefined,
+        teamMembers: eventAllowsTeams && formData.teamStatus === 'have-team' ? formData.teamMembers : undefined,
+        lookingFor: eventAllowsTeams && formData.teamStatus === 'looking' ? formData.lookingFor : undefined,
+        paymentScreenshot: paymentScreenshot, // Pass null if free
+        transactionId: formData.transactionId || undefined,
+        // Removed experience, motivation
+      };
       
-      const result = await registerForEvent(params.id, completeFormData)
+      const result = await registerForEvent(eventId, completeFormData);
       
       if (!result.success) {
-        throw new Error(result.error || "Registration failed")
+        throw new Error(result.error || "Registration failed");
       }
       
-      toast({
-        title: "Registration submitted",
-        description: "Your registration has been submitted. You'll receive a confirmation email once it's approved.",
-      })
-      
-      // Redirect to dashboard after successful registration
-      router.push("/participant/dashboard")
-    } catch (error: any) {
-      console.error("Registration error:", error)
-      toast({
-        title: "Registration failed",
-        description: error.message || "Something went wrong. Please try again later.",
-        variant: "destructive",
-      })
+      toast({ title: "Registration Submitted Successfully", description: "Your registration is pending approval. You'll be notified via email.", });
+      router.push("/participant/dashboard");
+
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      setError(err.message || "Something went wrong during registration.");
+      toast({ title: "Registration Failed", description: err.message || "Please check your details and try again.", variant: "destructive" });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
+      // Basic size check (e.g., 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "File Too Large", description: "Payment screenshot must be under 10MB.", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
-          setPaymentScreenshot(event.target.result as string)
+          setPaymentScreenshot(event.target.result as string);
         }
-      }
-      reader.readAsDataURL(file)
+      };
+      reader.readAsDataURL(file);
     }
-  }
-
-  const handlePaymentComplete = () => {
-    setPaymentComplete(true)
-    handleNextStep()
-  }
-
+  };
+  
   // Show loading state
   if (loading) {
     return (
@@ -164,14 +296,14 @@ export default function EventRegistrationPage({
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin h-8 w-8 border-t-2 border-primary rounded-full mx-auto mb-4"></div>
-            <p>Loading event information...</p>
+            <p>Loading event details...</p>
           </div>
         </main>
       </div>
-    )
+    );
   }
 
-  // Show error state
+  // Show error state if event fetch failed
   if (error || !event) {
     return (
       <div className="flex min-h-screen flex-col">
@@ -180,377 +312,367 @@ export default function EventRegistrationPage({
           <div className="container py-8">
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>Error Loading Event</AlertTitle>
               <AlertDescription>
-                {error || "This event could not be found. It may have been removed or you may have followed an invalid link."}
+                {error || "This event could not be found or loaded. Please check the link or try again later."}
               </AlertDescription>
             </Alert>
             <div className="mt-4">
-              <Button asChild>
-                <Link href="/">Return to Homepage</Link>
+              <Button asChild variant="outline">
+                <Link href="/">Return to Events</Link>
               </Button>
             </div>
           </div>
         </main>
       </div>
-    )
+    );
   }
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "TBA"
-    return format(new Date(dateString), "MMMM d, yyyy")
+  // Format date utility
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "TBA";
+    try {
+       return format(new Date(dateString), "MMMM d, yyyy");
+    } catch {
+      return "Invalid Date";
+    }
+  };
+  
+  // --- Render Steps --- 
+  const renderStepIndicator = (stepIndex: number, label: string) => {
+    const isActive = currentStep === stepIndex;
+    const isCompleted = currentStep > stepIndex;
+    return (
+      <div key={label} className="flex items-center gap-2">
+        <div
+          className={`flex h-8 w-8 items-center justify-center rounded-full ${
+            isActive || isCompleted ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {isCompleted ? <Check className="h-4 w-4" /> : stepIndex}
+        </div>
+        <span className={isActive || isCompleted ? "font-medium" : "text-muted-foreground"}>{label}</span>
+      </div>
+    );
+  };
+
+  const steps = ["Personal Info"];
+  if (eventAllowsTeams) steps.push("Team Preference");
+  if (!isFreeEvent) {
+    steps.push("Payment");
+    steps.push("Verification");
   }
+  steps.push("Confirmation");
+
+  // Map step labels to their sequence number
+  const stepMap: { [key: string]: number } = {};
+  steps.forEach((label, index) => stepMap[label] = index + 1);
 
   return (
     <div className="flex min-h-screen flex-col">
-          <SiteHeader />
+      <SiteHeader />
       <main className="flex-1">
         <div className="container py-8">
           <div className="flex flex-col gap-8">
+            {/* Back Button & Title */}
             <div className="flex items-center">
-              <Link href={`/events/${params.id}`} className="mr-4">
-                <Button variant="ghost" size="icon">
+              <Link href={`/events/${eventId}`} className="mr-4">
+                <Button variant="ghost" size="icon" aria-label="Back to event page">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
               <h1 className="text-3xl font-bold tracking-tight">Register for {event.name}</h1>
             </div>
 
-            <div className="flex justify-between mb-8">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    currentStep >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {currentStep > 1 ? <Check className="h-4 w-4" /> : 1}
-                </div>
-                <span className={currentStep >= 1 ? "font-medium" : "text-muted-foreground"}>Personal Info</span>
-                <Separator className="w-8 mx-2" />
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    currentStep >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {currentStep > 2 ? <Check className="h-4 w-4" /> : 2}
-                </div>
-                <span className={currentStep >= 2 ? "font-medium" : "text-muted-foreground"}>Team Preference</span>
-                <Separator className="w-8 mx-2" />
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    currentStep >= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {currentStep > 3 ? <Check className="h-4 w-4" /> : 3}
-                </div>
-                <span className={currentStep >= 3 ? "font-medium" : "text-muted-foreground"}>Payment</span>
-                <Separator className="w-8 mx-2" />
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    currentStep >= 4 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  4
-                </div>
-                <span className={currentStep >= 4 ? "font-medium" : "text-muted-foreground"}>Confirmation</span>
-              </div>
+            {/* Progress Indicator */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-8">
+               {steps.map((label, index) => (
+                 <React.Fragment key={label}>
+                   {renderStepIndicator(index + 1, label)}
+                   {index < steps.length - 1 && <Separator orientation="horizontal" className="w-8 mx-2 hidden sm:block" />}
+                 </React.Fragment>
+               ))}
             </div>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-              {/* Registration Form */}
+              {/* --- Registration Form Card --- */}
               <div className="md:col-span-2">
                 <Card>
                   <form onSubmit={handleSubmit}>
-                    {currentStep === 1 && (
+                    {/* --- Step 1: Personal Information --- */}
+                    {currentStep === stepMap["Personal Info"] && (
                       <>
                         <CardHeader>
                           <CardTitle>Personal Information</CardTitle>
                           <CardDescription>
-                            Tell us about yourself so we can register you for the event
+Please provide your contact details and relevant skills.
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="space-y-2">
                             <Label htmlFor="fullName">Full Name</Label>
-                            <Input 
-                              id="fullName" 
-                              placeholder="John Doe" 
-                              required 
-                              value={formData.fullName}
-                              onChange={handleInputChange}
-                            />
+                            <Input id="fullName" placeholder="Your Full Name" required value={formData.fullName} onChange={handleInputChange} autoComplete="name" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="email">Email Address</Label>
-                            <Input 
-                              id="email" 
-                              type="email" 
-                              placeholder="john@example.com" 
-                              required 
-                              value={formData.email}
-                              onChange={handleInputChange}
-                            />
+                            <Input id="email" type="email" placeholder="your.email@example.com" required value={formData.email} onChange={handleInputChange} autoComplete="email" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="phone">Phone Number</Label>
-                            <Input 
-                              id="phone" 
-                              type="tel" 
-                              placeholder="+1 (555) 123-4567" 
-                              required 
-                              value={formData.phone}
-                              onChange={handleInputChange}
-                            />
+                            <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" required value={formData.phone} onChange={handleInputChange} autoComplete="tel" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="skills">Skills & Expertise</Label>
+                            <Label htmlFor="skills">Relevant Skills</Label>
                             <Textarea
                               id="skills"
-                              placeholder="List your technical skills, programming languages, and areas of expertise"
+                              placeholder="List your relevant skills, separated by commas (e.g., React, Node.js, Project Management)"
                               className="min-h-24"
                               required
                               value={formData.skills}
                               onChange={handleInputChange}
                             />
+                             <p className="text-xs text-muted-foreground">This helps organizers and potential teammates understand your expertise.</p>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="experience">Previous Hackathon Experience</Label>
-                            <RadioGroup 
-                              value={formData.experience} 
-                              onValueChange={(value) => handleRadioChange("experience", value)}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="none" id="none" />
-                                <Label htmlFor="none" className="font-normal">
-                                  None - This is my first hackathon
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="some" id="some" />
-                                <Label htmlFor="some" className="font-normal">
-                                  Some - I've participated in 1-3 hackathons
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="experienced" id="experienced" />
-                                <Label htmlFor="experienced" className="font-normal">
-                                  Experienced - I've participated in 4+ hackathons
-                                </Label>
-                              </div>
-                            </RadioGroup>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="motivation">Why do you want to participate?</Label>
-                            <Textarea
-                              id="motivation"
-                              placeholder="Tell us why you're interested in this event and what you hope to achieve"
-                              className="min-h-24"
-                              required
-                              value={formData.motivation}
-                              onChange={handleInputChange}
-                            />
-                          </div>
+                          {/* Removed Experience & Motivation fields */}
                         </CardContent>
                         <CardFooter className="flex justify-end">
                           <Button type="button" onClick={handleNextStep}>
-                            Next: Team Preference
+                             Next: {eventAllowsTeams ? "Team Preference" : (isFreeEvent ? "Confirmation" : "Payment")}
                           </Button>
                         </CardFooter>
                       </>
                     )}
 
-                    {currentStep === 2 && (
+                    {/* --- Step 2: Team Preference (Conditional) --- */}
+                    {eventAllowsTeams && currentStep === stepMap["Team Preference"] && (
                       <>
                         <CardHeader>
                           <CardTitle>Team Preference</CardTitle>
-                          <CardDescription>Let us know your team status for this event</CardDescription>
+                          <CardDescription>Let us know if you're joining solo, with a team, or looking for one.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="team-status">Team Status</Label>
-                            <RadioGroup 
-                              value={formData.teamStatus} 
-                              onValueChange={(value) => handleRadioChange("teamStatus", value)}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="have-team" id="have-team" />
-                                <Label htmlFor="have-team" className="font-normal">
-                                  I already have a team
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="looking" id="looking" />
-                                <Label htmlFor="looking" className="font-normal">
-                                  I'm looking to join a team
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="solo" id="solo" />
-                                <Label htmlFor="solo" className="font-normal">
-                                  I want to participate solo
-                                </Label>
-                              </div>
-                            </RadioGroup>
-                          </div>
+                          <RadioGroup 
+                             value={formData.teamStatus || "looking"} 
+                             onValueChange={(value) => handleRadioChange("teamStatus", value)}
+                             className="space-y-2"
+                           >
+                             <Label>How are you participating?</Label>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="have-team" id="have-team" />
+                              <Label htmlFor="have-team" className="font-normal">I already have a team</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="looking" id="looking" />
+                              <Label htmlFor="looking" className="font-normal">I'm looking to join a team</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="solo" id="solo" />
+                              <Label htmlFor="solo" className="font-normal">I plan to participate solo</Label>
+                            </div>
+                          </RadioGroup>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="teamName">Team Name (if you have a team)</Label>
-                            <Input 
-                              id="teamName" 
-                              placeholder="Awesome Hackers" 
-                              value={formData.teamName}
-                              onChange={handleInputChange}
-                              disabled={formData.teamStatus !== "have-team"}
-                            />
-                          </div>
+                          {/* Fields shown when 'have-team' is selected */}
+                          {formData.teamStatus === "have-team" && (
+                            <>
+                              <div className="space-y-2 pt-4">
+                                <Label htmlFor="teamName">Team Name</Label>
+                                <Input 
+                                  id="teamName" 
+                                  placeholder="Enter your team's name" 
+                                  value={formData.teamName || ""}
+                                  onChange={handleInputChange}
+                                  required={formData.teamStatus === "have-team"}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="teamMembers">Team Members (Optional)</Label>
+                                <Textarea
+                                  id="teamMembers"
+                                  placeholder="List emails of members already in your team (one per line or comma separated). They still need to register."
+                                  className="min-h-24"
+                                  value={formData.teamMembers || ""}
+                                  onChange={handleInputChange}
+                                />
+                                 <p className="text-xs text-muted-foreground">
+                                   Team Size: {event.min_team_size || 1} - {event.max_team_size} members.
+                                </p>
+                              </div>
+                            </>
+                          )}
 
-                          <div className="space-y-2">
-                            <Label htmlFor="teamMembers">Team Members (if you have a team)</Label>
-                            <Textarea
-                              id="teamMembers"
-                              placeholder="List the email addresses of your team members (one per line)"
-                              className="min-h-24"
-                              value={formData.teamMembers}
-                              onChange={handleInputChange}
-                              disabled={formData.teamStatus !== "have-team"}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Note: Each team member must register individually. Maximum team size:{" "}
-                              {event.max_team_size || 4} members.
-                            </p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="lookingFor">
-                              What kind of teammates are you looking for? (if looking to join a team)
-                            </Label>
-                            <Textarea
-                              id="lookingFor"
-                              placeholder="Describe the skills or roles you're looking for in potential teammates"
-                              className="min-h-24"
-                              value={formData.lookingFor}
-                              onChange={handleInputChange}
-                              disabled={formData.teamStatus !== "looking"}
-                            />
-                          </div>
+                          {/* Fields shown when 'looking' is selected */} 
+                          {formData.teamStatus === "looking" && (
+                            <div className="space-y-2 pt-4">
+                              <Label htmlFor="lookingFor">What are you looking for in teammates?</Label>
+                              <Textarea
+                                id="lookingFor"
+                                placeholder="Describe skills, roles, or ideas you're interested in (e.g., Backend Developer, UI/UX Designer)"
+                                className="min-h-24"
+                                value={formData.lookingFor || ""}
+                                onChange={handleInputChange}
+                                required={formData.teamStatus === "looking"}
+                              />
+                            </div>
+                          )}
                         </CardContent>
                         <CardFooter className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handlePreviousStep}>
-                            Back
-                          </Button>
+                          <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
                           <Button type="button" onClick={handleNextStep}>
-                            Next: Payment
+                             Next: {isFreeEvent ? "Confirmation" : "Payment"}
                           </Button>
                         </CardFooter>
                       </>
                     )}
 
-                    {currentStep === 3 && (
+                    {/* --- Step 3: Payment (Conditional) --- */}
+                    {!isFreeEvent && currentStep === stepMap["Payment"] && (
                       <>
                         <CardHeader>
                           <CardTitle>Registration Payment</CardTitle>
-                          <CardDescription>Complete your registration by paying the fee</CardDescription>
+                          <CardDescription>Please complete the payment to proceed.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                           <Alert>
                             <Info className="h-4 w-4" />
-                            <AlertTitle>Registration Fee</AlertTitle>
+                            <AlertTitle>Registration Fee: ${event.registration_fee}</AlertTitle>
                             <AlertDescription>
-                              This event has a registration fee of ${event.registration_fee || 0}. Please complete the
-                              payment to confirm your registration.
+                              Follow the instructions below to pay the registration fee.
                             </AlertDescription>
                           </Alert>
 
                           <div className="rounded-lg border p-6 text-center">
-                            <h3 className="text-lg font-medium mb-4">Scan QR Code to Pay</h3>
-                            <div className="flex justify-center mb-4">
-                              <img
-                                src={event.qr_code_url || "/placeholder.svg"}
-                                alt="Payment QR Code"
-                                className="h-64 w-64 object-contain"
-                              />
-                            </div>
+                            <h3 className="text-lg font-medium mb-4">Scan QR Code or use UPI ID</h3>
+                            {event.qr_code_url && (
+                              <div className="flex justify-center mb-4">
+                                <img
+                                  src={event.qr_code_url}
+                                  alt="Payment QR Code"
+                                  className="h-64 w-64 object-contain border rounded-md"
+                                />
+                              </div>
+                            )}
                             <div className="text-sm text-muted-foreground mb-4">
-                              <p>UPI ID: {event.upi_id || "organizer@upi"}</p>
-                              <p>Amount: ${event.registration_fee || 0}</p>
+                              {event.upi_id && <p>UPI ID: {event.upi_id}</p>}
+                              <p>Amount: ${event.registration_fee}</p>
                             </div>
-                            <Button type="button" variant="outline" className="w-full" onClick={handlePaymentComplete}>
-                              I've Completed the Payment
+                            <Button type="button" variant="secondary" className="w-full" onClick={handlePaymentComplete}>
+                              I Have Completed the Payment
                             </Button>
                           </div>
                         </CardContent>
+                         <CardFooter className="flex justify-start">
+                           <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
+                         </CardFooter>
                       </>
                     )}
 
-                    {currentStep === 4 && (
+                    {/* --- Step 4: Payment Verification (Conditional) --- */}
+                    {!isFreeEvent && currentStep === stepMap["Verification"] && (
                       <>
                         <CardHeader>
                           <CardTitle>Payment Verification</CardTitle>
-                          <CardDescription>Upload a screenshot of your payment for verification</CardDescription>
+                          <CardDescription>Upload a screenshot of your completed payment.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                           <div className="space-y-2">
-                            <Label htmlFor="payment-screenshot">Payment Screenshot</Label>
+                            <Label htmlFor="payment-screenshot-upload">Payment Screenshot (Required)</Label>
                             <div className="flex items-center justify-center w-full">
                               <label
                                 htmlFor="payment-screenshot-upload"
-                                className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50"
+                                className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
                               >
                                 {paymentScreenshot ? (
-                                  <img
-                                    src={paymentScreenshot}
-                                    alt="Payment Screenshot"
-                                    className="h-full w-full object-contain p-2"
-                                  />
+                                  <img src={paymentScreenshot} alt="Payment Screenshot Preview" className="h-full w-full object-contain p-2" />
                                 ) : (
-                                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                  <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                                     <Upload className="w-8 h-8 mb-3 text-muted-foreground" />
                                     <p className="mb-2 text-sm text-muted-foreground">
                                       <span className="font-semibold">Click to upload</span> or drag and drop
                                     </p>
-                                    <p className="text-xs text-muted-foreground">PNG, JPG or GIF (Max 10MB)</p>
+                                    <p className="text-xs text-muted-foreground">PNG, JPG, GIF (Max 10MB)</p>
                                   </div>
                                 )}
-                                <Input
-                                  id="payment-screenshot-upload"
-                                  type="file"
-                                  className="hidden"
-                                  accept="image/*"
-                                  onChange={handleFileChange}
-                                  required
-                                />
                               </label>
+                              <Input id="payment-screenshot-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required />
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              Please upload a clear screenshot of your payment confirmation. This will be reviewed by
-                              the organizers.
-                            </p>
+                            <p className="text-xs text-muted-foreground">This helps the organizers confirm your payment.</p>
                           </div>
-
                           <div className="space-y-2">
                             <Label htmlFor="transactionId">Transaction ID (Optional)</Label>
                             <Input 
                               id="transactionId" 
-                              placeholder="Enter the transaction ID if available" 
-                              value={formData.transactionId}
+                              placeholder="Enter payment reference or transaction ID" 
+                              value={formData.transactionId || ""}
                               onChange={handleInputChange}
                             />
                           </div>
-
-                          <Alert className="bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200">
+                          <Alert>
                             <Info className="h-4 w-4" />
-                            <AlertTitle>Registration Status</AlertTitle>
+                            <AlertTitle>Approval Required</AlertTitle>
                             <AlertDescription>
-                              Your registration will be pending until the payment is verified by the organizers. You'll
-                              receive an email once your registration is approved.
+                              Your registration status will remain pending until payment is verified by the organizers.
                             </AlertDescription>
                           </Alert>
                         </CardContent>
                         <CardFooter className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handlePreviousStep}>
-                            Back
+                          <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
+                          <Button type="button" onClick={handleNextStep} disabled={!paymentScreenshot}>
+                             Next: Confirmation
                           </Button>
-                          <Button type="submit" disabled={isSubmitting || !paymentScreenshot}>
+                        </CardFooter>
+                      </>
+                    )}
+
+                    {/* --- Step 5: Confirmation --- */}
+                    {currentStep === stepMap["Confirmation"] && (
+                      <>
+                        <CardHeader>
+                          <CardTitle>Confirm Registration</CardTitle>
+                          <CardDescription>Review your information before submitting.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Display registration error if any */} 
+                          {error && (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertTitle>Registration Error</AlertTitle>
+                              <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                          )}
+                          
+                          {/* Summary Section */} 
+                          <Alert variant="default">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>Registration Summary</AlertTitle>
+                            <AlertDescription className="space-y-1">
+                              <p><strong>Name:</strong> {formData.fullName}</p>
+                              <p><strong>Email:</strong> {formData.email}</p>
+                              {eventAllowsTeams && (
+                                <p><strong>Participation:</strong> {
+                                  formData.teamStatus === "have-team" ? `With Team (${formData.teamName || '-'})` :
+                                  formData.teamStatus === "looking" ? "Looking for a Team" :
+                                  "Participating Solo"
+                                }</p>
+                              )}
+                              <p><strong>Fee:</strong> {isFreeEvent ? "Free Event" : `$${event.registration_fee} (Pending Verification)`}</p>
+                            </AlertDescription>
+                          </Alert>
+
+                          {/* Final Confirmation Note */} 
+                           <Alert className={isFreeEvent ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200" : "bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"}>
+                            <Check className="h-4 w-4" />
+                            <AlertTitle>{isFreeEvent ? "Ready to Register!" : "Payment Uploaded"}</AlertTitle>
+                            <AlertDescription>
+                              {isFreeEvent 
+                                ? "Click Complete Registration to submit your details."
+                                : "Your payment screenshot is uploaded. Click Complete Registration to submit everything for review."
+                              }
+                            </AlertDescription>
+                          </Alert>
+                        </CardContent>
+                        <CardFooter className="flex justify-between">
+                          <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
+                          <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting ? "Submitting..." : "Complete Registration"}
                           </Button>
                         </CardFooter>
@@ -560,47 +682,46 @@ export default function EventRegistrationPage({
                 </Card>
               </div>
 
-              {/* Event Info Sidebar */}
+              {/* --- Event Info Sidebar --- */}
               <div className="md:col-span-1">
                 <Card>
                   <CardHeader>
                     <CardTitle>Event Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="aspect-video relative overflow-hidden rounded-md">
-                      <img
-                        src={event.banner_image || "/placeholder.svg"}
-                        alt={event.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-
-                    <h3 className="text-xl font-bold">{event.name}</h3>
-                    <p className="text-sm text-muted-foreground">{event.description}</p>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {event.banner_image && (
+                      <div className="aspect-video relative overflow-hidden rounded-md bg-muted">
+                        <img src={event.banner_image} alt={event.name} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <h3 className="text-xl font-semibold pt-2">{event.name}</h3>
+                    {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
+                    <Separator />
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center">
+                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span>{formatDate(event.start_date)} - {formatDate(event.end_date)}</span>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>{event.location || "TBA"}</span>
+                      <div className="flex items-center">
+                        <MapPin className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span>{event.location || "Online"}</span>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Registration Fee: ${event.registration_fee || 0}</span>
+                      <div className="flex items-center">
+                        <CreditCard className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span>Fee: {isFreeEvent ? "Free" : `$${event.registration_fee}`}</span>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>Max Team Size: {event.max_team_size || 4}</span>
-                      </div>
+                      {eventAllowsTeams && (
+                        <div className="flex items-center">
+                          <Users className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>Team Size: {event.min_team_size || 1} - {event.max_team_size || 4} members</span>
+                        </div>
+                      )}
                     </div>
-
-                    <div className="rounded-lg bg-muted p-4">
-                      <h3 className="font-medium mb-2">Registration Deadline</h3>
+                    <Separator />
+                    <div className="rounded-lg bg-muted p-3">
+                      <h4 className="font-medium mb-1 text-sm">Registration Deadline</h4>
                       <div className="flex items-center text-sm">
-                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span>{formatDate(event.registration_end_date)}</span>
                       </div>
                     </div>
@@ -613,10 +734,11 @@ export default function EventRegistrationPage({
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground mb-4">
-                      If you have any questions about the registration process or the event, please contact us.
+                      Questions about registration or the event? Contact the organizers.
                     </p>
                     <Button variant="outline" className="w-full" asChild>
-                      <Link href="/contact">Contact Support</Link>
+                      {/* TODO: Link to a proper contact page or organizer profile */} 
+                      <Link href="/">Contact Support (Placeholder)</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -626,6 +748,9 @@ export default function EventRegistrationPage({
         </div>
       </main>
     </div>
-  )
+  );
 }
+
+
+// Helper React component needed because map cannot be used directly in Server Components for Progress Indicator
 

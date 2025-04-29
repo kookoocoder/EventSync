@@ -28,12 +28,12 @@ const iconMap = {
 };
 
 // Client component wrapper to handle client-side interactions like signout
-export function ParticipantDashboardClient({ user, participantData, fetchError, registeredHackathons, completedHackathons, stats }: {
+export function ParticipantDashboardClient({ user, participantData, fetchError, registeredEvents, completedEvents, stats }: {
     user: any; // Type appropriately based on Auth.requireParticipant return
     participantData: any;
     fetchError: string | null;
-    registeredHackathons: ParticipantEvent[];
-    completedHackathons: ParticipantEvent[];
+    registeredEvents: ParticipantEvent[];
+    completedEvents: ParticipantEvent[];
     stats: any[]; // Type appropriately
 }) {
     const { signOut } = useAuth(); // Get signOut from client context
@@ -99,8 +99,8 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
                                     <TabsTrigger value="completed">Completed Events</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="registered" className="space-y-4 pt-4">
-                                     {registeredHackathons.length > 0 ? (
-                                        registeredHackathons.map((event) => (
+                                     {registeredEvents.length > 0 ? (
+                                        registeredEvents.map((event) => (
                                             <EventCard key={event.id} event={event} />
                                         ))
                                      ) : (
@@ -108,8 +108,8 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
                                      )}
                                 </TabsContent>
                                 <TabsContent value="completed" className="space-y-4 pt-4">
-                                     {completedHackathons.length > 0 ? (
-                                        completedHackathons.map((event) => (
+                                     {completedEvents.length > 0 ? (
+                                        completedEvents.map((event) => (
                                             <EventCard key={event.id} event={event} isCompleted />
                                         ))
                                      ) : (

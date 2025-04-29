@@ -8,6 +8,7 @@ import {
   MapPin,
   MoreHorizontal,
   Users,
+  Award, // Assuming Award is used for a stat
 } from "lucide-react";
 import { Auth } from '@/lib/auth-server';
 import { createServerComponentClient } from '@/lib/supabase/server';
@@ -17,74 +18,154 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ParticipantDashboardClient } from './client';
+import { format, isPast } from 'date-fns';
+
+// Define the expected shape for joined registration data
+// This should align with the SELECT query below
+interface FetchedRegistration {
+  id: string;
+  status: string; 
+  payment_status: string | null;
+  registration_type: string;
+  events: {
+    id: string;
+    name: string;
+    description: string | null;
+    banner_image: string | null;
+    start_date: string;
+    end_date: string;
+    location: string | null;
+  } | null; // Event might be null if deleted?
+  teams: {
+    id: string;
+    name: string;
+  } | null; // Team might be null
+}
+
+// Interface matching the props expected by ParticipantDashboardClient
+// Note: This is redefined here but should ideally be shared from client.tsx
+interface ParticipantEvent {
+  id: string;          // Event ID
+  title: string;        // Event Name
+  description: string;  // Event Description
+  image?: string;       // Event Banner Image
+  date: string;         // Formatted Date Range
+  location: string;    // Event Location
+  status: string;       // Registration Status (e.g., "Pending Approval", "Registered", "Payment Required")
+  teamName?: string | null;
+  teamMembers?: number | string | null; // Simplified for now
+  result?: string | null; // Needs data source if required
+}
 
 export default async function ParticipantDashboardPage() {
-    // --- Server-side data fetching ---
     const user = await Auth.requireParticipant();
     const supabase = await createServerComponentClient();
     let participantData: any = null;
+    let registeredEvents: ParticipantEvent[] = [];
+    let completedEvents: ParticipantEvent[] = [];
+    let stats: any[] = []; // Initialize empty
     let fetchError: string | null = null;
 
     try {
-        const { data, error } = await supabase
+        // --- Fetch Participant Profile ---
+        const { data: profileData, error: profileError } = await supabase
             .from('participants')
             .select('name, bio, skills, avatar_url')
             .eq('id', user.id)
             .maybeSingle();
 
-        if (error) {
-            console.error("Error fetching participant data:", error);
-            fetchError = `Failed to load participant data: ${error.message}`;
-        } else {
-            participantData = data;
-        }
+        if (profileError) throw profileError; // Throw to be caught below
+        participantData = profileData;
+
+        // --- Fetch Registrations with Event and Team Details ---
+        const { data: registrationData, error: registrationError } = await supabase
+            .from('registrations')
+            .select(`
+                id,
+                status,
+                payment_status,
+                registration_type,
+                events ( id, name, description, banner_image, start_date, end_date, location ),
+                teams ( id, name )
+            `)
+            .eq('participant_id', user.id)
+            .order('created_at', { ascending: false }); // Order by registration date
+
+        if (registrationError) throw registrationError; // Throw to be caught below
+
+        // --- Process Registrations ---
+        const now = new Date();
+        registrationData.forEach((reg: FetchedRegistration) => {
+            if (!reg.events) return; // Skip if event data is missing
+
+            // Determine display status
+            let displayStatus = reg.status; // e.g., 'pending', 'approved', 'rejected'
+            if (reg.status === 'pending' && reg.payment_status === 'pending') {
+                 displayStatus = 'Payment Verification Pending';
+            } else if (reg.status === 'pending') {
+                displayStatus = 'Approval Pending';
+            } else if (reg.status === 'approved') {
+                displayStatus = 'Registered';
+            }
+            // Add more specific statuses if needed (e.g., Payment Rejected?)
+
+            const eventEndDate = new Date(reg.events.end_date);
+            const isCompleted = isPast(eventEndDate);
+
+            const formattedEvent: ParticipantEvent = {
+                id: reg.events.id,
+                title: reg.events.name,
+                description: reg.events.description || 'No description available.',
+                image: reg.events.banner_image || undefined,
+                date: `${format(new Date(reg.events.start_date), 'MMM d, yyyy')} - ${format(eventEndDate, 'MMM d, yyyy')}`,
+                location: reg.events.location || 'Online',
+                status: displayStatus,
+                teamName: reg.teams?.name,
+                teamMembers: 'N/A', // Placeholder - requires separate count query or view
+                result: null, // Placeholder - requires data source for results/awards
+            };
+
+            if (isCompleted) {
+                completedEvents.push(formattedEvent);
+            } else {
+                registeredEvents.push(formattedEvent);
+            }
+        });
+
+        // --- Calculate Stats ---
+        const teamCount = registrationData.filter(reg => reg.team_id !== null).length;
+        stats = [
+            { title: "Total Events Registered", value: registrationData.length.toString(), iconName: "Calendar" },
+            { title: "Upcoming/Ongoing Events", value: registeredEvents.length.toString(), iconName: "Clock" },
+            { title: "Events Joined with Team", value: teamCount.toString(), iconName: "Users" },
+            // { title: "Awards/Wins", value: "0", iconName: "Award" }, // Placeholder
+        ];
+
     } catch (err: any) {
-        console.error("Caught unexpected error during participant data fetch:", err.message || err);
-        fetchError = `An unexpected error occurred while loading profile data.`;
+        console.error("Error fetching dashboard data:", err);
+        // Determine which error occurred if needed, otherwise use generic message
+        if (!participantData) {
+             fetchError = `Failed to load profile: ${err.message}`;
+        } else {
+            fetchError = `Failed to load event registrations: ${err.message}`;
+        }
     }
 
-    // --- Mock Data (Keep for now) ---
-     const registeredEvents: ParticipantEvent[] = [
-        { id: "1", title: "AI Innovation Challenge", description: "Build the next generation of AI-powered applications", image: "/placeholder.svg?height=400&width=600", date: "May 15-17, 2025", location: "Online", status: "Registered", teamName: "AI Innovators", teamMembers: 4 },
-        { id: "2", title: "Web3 Hackathon", description: "Create decentralized applications that shape the future", image: "/placeholder.svg?height=400&width=600", date: "Jun 5-7, 2025", location: "San Francisco, CA", status: "Pending Approval", teamName: null, teamMembers: null },
-    ];
-    const completedEvents: ParticipantEvent[] = [
-        { id: "3", title: "Mobile App Challenge", description: "Design innovative mobile applications", image: "/placeholder.svg?height=400&width=600", date: "Mar 10-12, 2025", location: "Online", status: "Completed", teamName: "App Wizards", teamMembers: 3, result: "Honorable Mention" },
-    ];
-    const stats = [
-        { title: "Events Joined", value: "3", iconName: "Calendar" },
-        { title: "Upcoming Events", value: "2", iconName: "Clock" },
-        { title: "Team Members", value: "7", iconName: "Users" },
-    ];
-    // --- End Mock Data ---
-
-    // Pass server-fetched data and mocks to the client component
+    // Pass server-fetched data to the client component
     return (
         <ParticipantDashboardClient
             user={user}
             participantData={participantData}
             fetchError={fetchError}
-            registeredHackathons={registeredEvents}
-            completedHackathons={completedEvents}
+            registeredEvents={registeredEvents} // Use correct prop name
+            completedEvents={completedEvents} // Use correct prop name
             stats={stats}
         />
     );
 }
 
-
-// --- ParticipantEvent Interface ---
-interface ParticipantEvent {
-    id: string;
-    title: string;
-    description: string;
-    image?: string;
-    date: string;
-    location: string;
-    status: string;
-    teamName?: string | null;
-    teamMembers?: number | string | null;
-    result?: string | null;
-}
+// Removed duplicate ParticipantEvent interface and HackathonCard component
+// The client component (client.tsx) now handles rendering
 
 // --- HackathonCard Component (UI Updated based on example) ---
 function HackathonCard({ hackathon, isCompleted = false }: {
