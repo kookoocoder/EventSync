@@ -45,7 +45,7 @@
 
       // --- Redirect on Success ---
       const userType = data.user.user_metadata?.userType;
-      let redirectPath = '/dashboard'; // Default
+      let redirectPath = '/'; // Default
 
       if (userType === 'organizer') {
         redirectPath = '/organizer/dashboard';

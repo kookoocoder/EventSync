@@ -16,165 +16,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteHeader } from "@/components/SiteHeader";
-import { useAuth } from "@/components/auth/AuthProvider"; 
-
-// Client component wrapper to handle client-side interactions like signout
-function ParticipantDashboardClient({ user, participantData, fetchError, registeredHackathons, completedHackathons, stats }: {
-    user: any; // Type appropriately based on Auth.requireParticipant return
-    participantData: any;
-    fetchError: string | null;
-    registeredHackathons: ParticipantHackathon[];
-    completedHackathons: ParticipantHackathon[];
-    stats: any[]; // Type appropriately
-}) {
-    const { signOut } = useAuth(); // Get signOut from client context
-
-    return (
-        <div className="flex min-h-screen flex-col">
-            <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="container flex h-16 items-center justify-between">
-                    <SiteHeader />
-                    <div className="flex items-center gap-4">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="gap-1">
-                                    <span className="hidden sm:inline-block">{user?.user_metadata?.name || "User"}</span>
-                                    {/* Using a simple div for avatar based on example */}
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                                        {user?.user_metadata?.name?.[0]?.toUpperCase() || "U"}
-                                    </div>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                    <Link href="/participant/profile">Profile</Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/participant/settings">Settings</Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => signOut()}>Logout</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main content */}
-            <main className="flex-1">
-                {fetchError ? ( // Changed variable name to fetchError
-                    <div className="container py-8">
-                        <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700 mb-6">
-                            <p>{fetchError}</p>
-                            {/* Added buttons based on example error state */}
-                            <div className="mt-4 flex gap-2">
-                                <Button onClick={() => signOut()} variant="outline">
-                                    Sign Out
-                                </Button>
-                                <Button onClick={() => window.location.reload()}>
-                                    Reload Page
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="container py-8">
-                        <div className="flex flex-col gap-8">
-                            <div className="flex items-center justify-between">
-                                <h1 className="text-3xl font-bold tracking-tight">Participant Dashboard</h1>
-                                <Link href="/hackathons">
-                                    <Button>Find Hackathons</Button>
-                                </Link>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                {stats.map((stat, index) => (
-                                    <Card key={index}>
-                                        <CardContent className="p-6">
-                                            <div className="flex items-center justify-between space-y-0">
-                                                <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                                                <stat.icon className="h-5 w-5 text-muted-foreground" />
-                                            </div>
-                                            <div className="mt-3">
-                                                <p className="text-3xl font-bold">{stat.value}</p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-
-                            <Tabs defaultValue="registered" className="w-full">
-                                <TabsList>
-                                    <TabsTrigger value="registered">Registered Hackathons</TabsTrigger>
-                                    <TabsTrigger value="completed">Completed Hackathons</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="registered" className="space-y-4 pt-4">
-                                     {registeredHackathons.length > 0 ? (
-                                        registeredHackathons.map((hackathon) => (
-                                            <HackathonCard key={hackathon.id} hackathon={hackathon} />
-                                        ))
-                                     ) : (
-                                        <p className="text-muted-foreground text-center py-4">No registered hackathons found.</p>
-                                     )}
-                                </TabsContent>
-                                <TabsContent value="completed" className="space-y-4 pt-4">
-                                     {completedHackathons.length > 0 ? (
-                                        completedHackathons.map((hackathon) => (
-                                            <HackathonCard key={hackathon.id} hackathon={hackathon} isCompleted />
-                                        ))
-                                     ) : (
-                                         <p className="text-muted-foreground text-center py-4">No completed hackathons found.</p>
-                                     )}
-                                </TabsContent>
-                            </Tabs>
-
-                            {/* Display profile info if fetched - updated structure */}
-                             {participantData ? (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Your Profile Summary</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {participantData.name && <p className="mb-1"><span className="font-medium">Name:</span> {participantData.name}</p>}
-                                        {participantData.bio && <p className="mb-1 italic text-muted-foreground">"{participantData.bio}"</p>}
-                                        {participantData.skills && participantData.skills.length > 0 ? (
-                                            <p><span className="font-medium">Skills:</span> {participantData.skills.join(', ')}</p>
-                                        ) : (
-                                            <p className="text-muted-foreground text-sm">No skills listed.</p>
-                                        )}
-                                    </CardContent>
-                                    <CardFooter>
-                                        <Link href="/participant/profile">
-                                            <Button variant="outline" size="sm">View/Edit Full Profile</Button>
-                                        </Link>
-                                    </CardFooter>
-                                </Card>
-                             ) : !fetchError && ( // Only show if no error and no data
-                                <Card>
-                                    <CardHeader><CardTitle>Complete Your Profile</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <p className="text-muted-foreground">Finish setting up your participant profile to see your summary here.</p>
-                                        <p className="text-xs text-muted-foreground mt-2">(Ensure you've added details in the 'participants' table associated with your user ID).</p>
-                                    </CardContent>
-                                    <CardFooter>
-                                        <Link href="/participant/profile">
-                                            <Button variant="default" size="sm">Go to Profile</Button>
-                                        </Link>
-                                    </CardFooter>
-                                </Card>
-                             )}
-                        </div>
-                    </div>
-                )}
-            </main>
-        </div>
-    );
-}
-
+import { ParticipantDashboardClient } from './client';
 
 export default async function ParticipantDashboardPage() {
     // --- Server-side data fetching ---
     const user = await Auth.requireParticipant();
-    const supabase = createServerComponentClient();
+    const supabase = await createServerComponentClient();
     let participantData: any = null;
     let fetchError: string | null = null;
 
@@ -197,18 +44,18 @@ export default async function ParticipantDashboardPage() {
     }
 
     // --- Mock Data (Keep for now) ---
-     const registeredHackathons: ParticipantHackathon[] = [
+     const registeredEvents: ParticipantEvent[] = [
         { id: "1", title: "AI Innovation Challenge", description: "Build the next generation of AI-powered applications", image: "/placeholder.svg?height=400&width=600", date: "May 15-17, 2025", location: "Online", status: "Registered", teamName: "AI Innovators", teamMembers: 4 },
         { id: "2", title: "Web3 Hackathon", description: "Create decentralized applications that shape the future", image: "/placeholder.svg?height=400&width=600", date: "Jun 5-7, 2025", location: "San Francisco, CA", status: "Pending Approval", teamName: null, teamMembers: null },
     ];
-    const completedHackathons: ParticipantHackathon[] = [
+    const completedEvents: ParticipantEvent[] = [
         { id: "3", title: "Mobile App Challenge", description: "Design innovative mobile applications", image: "/placeholder.svg?height=400&width=600", date: "Mar 10-12, 2025", location: "Online", status: "Completed", teamName: "App Wizards", teamMembers: 3, result: "Honorable Mention" },
     ];
     const stats = [
-        { title: "Hackathons Joined", value: "3", icon: Calendar },
-        { title: "Upcoming Events", value: "2", icon: Clock },
-        { title: "Team Members", value: "7", icon: Users },
-        { title: "Projects Built", value: "4", icon: Code },
+        { title: "Events Joined", value: "3", iconName: "Calendar" },
+        { title: "Upcoming Events", value: "2", iconName: "Clock" },
+        { title: "Team Members", value: "7", iconName: "Users" },
+        { title: "Projects Built", value: "4", iconName: "Code" },
     ];
     // --- End Mock Data ---
 
@@ -218,16 +65,16 @@ export default async function ParticipantDashboardPage() {
             user={user}
             participantData={participantData}
             fetchError={fetchError}
-            registeredHackathons={registeredHackathons}
-            completedHackathons={completedHackathons}
+            registeredHackathons={registeredEvents}
+            completedHackathons={completedEvents}
             stats={stats}
         />
     );
 }
 
 
-// --- ParticipantHackathon Interface ---
-interface ParticipantHackathon {
+// --- ParticipantEvent Interface ---
+interface ParticipantEvent {
     id: string;
     title: string;
     description: string;
@@ -236,13 +83,13 @@ interface ParticipantHackathon {
     location: string;
     status: string;
     teamName?: string | null;
-    teamMembers?: number | string | null; // Keeping union type as per original
+    teamMembers?: number | string | null;
     result?: string | null;
 }
 
 // --- HackathonCard Component (UI Updated based on example) ---
 function HackathonCard({ hackathon, isCompleted = false }: {
-    hackathon: ParticipantHackathon;
+    hackathon: ParticipantEvent;
     isCompleted?: boolean;
 }) {
     // Card structure based on the provided example's internal structure
