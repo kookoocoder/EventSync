@@ -63,7 +63,7 @@ export function EventCard({
           {registrationFee === 0 ? (
             <Badge className="bg-green-500">Free</Badge>
           ) : (
-            <Badge>${registrationFee}</Badge>
+            <Badge>₹{registrationFee}</Badge>
           )}
         </div>
       </div>

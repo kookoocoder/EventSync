@@ -74,7 +74,7 @@ export function SiteHeader() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Your blockchain points</p>
-                  <p className="text-xs">{pointsLoading ? 'Loading...' : `Value: ${((points || 0) * 0.1).toFixed(2)} in discounts`}</p>
+                  <p className="text-xs">{pointsLoading ? 'Loading...' : `Value: ₹${((points || 0) * 0.1).toFixed(2)} in discounts`}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

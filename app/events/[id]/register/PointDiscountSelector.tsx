@@ -165,7 +165,7 @@ export function PointDiscountSelector({
           </div>
           <div>
             <p className="text-sm font-medium">Discount</p>
-            <p className="text-2xl font-bold">{discountAmount.toFixed(2)}</p>
+            <p className="text-2xl font-bold">₹{discountAmount.toFixed(2)}</p>
           </div>
         </div>
         
@@ -190,7 +190,7 @@ export function PointDiscountSelector({
         
         <p className="text-sm text-muted-foreground">
           {pointsToUse > 0 
-            ? `You'll save ${discountAmount.toFixed(2)} by using ${pointsToUse} points.`
+            ? `You'll save ₹${discountAmount.toFixed(2)} by using ${pointsToUse} points.`
             : 'Move the slider to use your points for a discount.'}
         </p>
         
@@ -220,7 +220,7 @@ export function PointDiscountSelector({
             </TooltipTrigger>
             <TooltipContent>
               <p>Points are securely stored on our blockchain</p>
-              <p className="text-xs">1 point = 0.1 discount units</p>
+              <p className="text-xs">1 point = ₹0.1 discount units</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

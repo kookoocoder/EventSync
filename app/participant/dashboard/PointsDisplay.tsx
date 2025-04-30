@@ -139,7 +139,7 @@ export function PointsDisplay({ userId }: { userId: string }) {
           <div className="text-4xl font-bold">{balance}</div>
           <div className="text-sm text-muted-foreground mt-1">points available</div>
           <div className="text-xs text-muted-foreground">
-            Value: {((balance || 0) * 0.1).toFixed(2)} in discounts
+            Value: ₹{((balance || 0) * 0.1).toFixed(2)} in discounts
           </div>
           
           <div className="flex items-center mt-2 text-xs text-muted-foreground">

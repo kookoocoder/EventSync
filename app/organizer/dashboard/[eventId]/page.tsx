@@ -556,6 +556,22 @@ export default function EventDashboardPage() {
     try {
       const supabase = createClient()
       
+      // Fetch registration details to check for points used
+      const { data: registrationData, error: fetchError } = await supabase
+        .from('registrations')
+        .select('participant_id, points_used, discount_amount, status')
+        .eq('id', registrationId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      // If already approved, don't process again
+      if (registrationData.status === 'approved') {
+        alert("This registration is already approved.");
+        setIsApproving(false);
+        return;
+      }
+      
       // Update registration status
       const { error: updateError } = await supabase
         .from('registrations')
@@ -566,6 +582,72 @@ export default function EventDashboardPage() {
         .eq('id', registrationId)
       
       if (updateError) throw updateError
+      
+      // Process point transaction if points were used
+      if (registrationData.points_used && registrationData.points_used > 0) {
+        try {
+          // Generate a transaction hash for blockchain
+          const transactionHash = generateTransactionHash();
+          
+          // 1. Update the pending transaction to completed
+          const { error: pendingUpdateError } = await supabase
+            .from('blockchain_transactions')
+            .update({
+              transaction_type: 'spend',  // Change from 'pending_spend' to 'spend'
+              transaction_hash: transactionHash,
+              updated_at: new Date().toISOString()
+            })
+            .eq('registration_id', registrationId)
+            .eq('transaction_type', 'pending_spend');
+            
+          if (pendingUpdateError) {
+            console.error("Error updating pending transaction:", pendingUpdateError);
+          }
+          
+          // 2. Also create a record in token_balances or update existing balance
+          // First check if balance exists
+          const { data: balanceData, error: balanceError } = await supabase
+            .from('token_balances')
+            .select('balance')
+            .eq('participant_id', registrationData.participant_id)
+            .single();
+            
+          if (balanceError && balanceError.code !== 'PGRST116') { // PGRST116 = not found
+            console.error("Error checking token balance:", balanceError);
+          }
+          
+          // If balance exists, update it; otherwise create it
+          if (balanceData) {
+            const newBalance = Math.max(0, balanceData.balance - registrationData.points_used);
+            const { error: updateBalanceError } = await supabase
+              .from('token_balances')
+              .update({ balance: newBalance })
+              .eq('participant_id', registrationData.participant_id);
+              
+            if (updateBalanceError) {
+              console.error("Error updating token balance:", updateBalanceError);
+            }
+          } else {
+            // This shouldn't normally happen as balance should be initialized elsewhere,
+            // but handle it just in case
+            const { error: insertBalanceError } = await supabase
+              .from('token_balances')
+              .insert({ 
+                participant_id: registrationData.participant_id,
+                balance: 0 // Start with 0 since we're spending points
+              });
+              
+            if (insertBalanceError) {
+              console.error("Error creating token balance:", insertBalanceError);
+            }
+          }
+          
+          console.log(`Processed point transaction: ${registrationData.points_used} points spent for discount of ${registrationData.discount_amount}`);
+        } catch (pointsError) {
+          console.error("Error processing points transaction:", pointsError);
+          // Don't fail the approval if points processing fails
+        }
+      }
       
       // Update event participant count
       if (eventData) {
@@ -594,6 +676,20 @@ export default function EventDashboardPage() {
       setIsApproving(false)
       setSelectedRegistration(null)
     }
+  }
+
+  // Generate a transaction hash for blockchain
+  function generateTransactionHash(): string {
+    const prefix = 'txn_';
+    const characters = 'abcdef0123456789';
+    let hash = prefix;
+    
+    // Generate a 32-character hash
+    for (let i = 0; i < 32; i++) {
+      hash += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    
+    return hash;
   }
 
   // Handle rejection

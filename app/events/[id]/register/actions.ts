@@ -20,6 +20,10 @@ export type RegistrationFormData = {
   // Payment Information
   paymentScreenshot: string | null; // Base64 string or null
   transactionId?: string;
+  
+  // Points and Discount Information
+  pointsUsed?: number;
+  discountAmount?: number;
 };
 
 export async function registerForEvent(eventId: string, formData: RegistrationFormData) {
@@ -91,12 +95,12 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
       .from("events")
       .select("registration_fee, min_team_size, max_team_size")
       .eq("id", eventId)
-          .single();
+      .single();
         
     if (eventError || !event) {
       console.error("Error fetching event details for registration:", eventError);
       return { success: false, error: "Could not retrieve event details." };
-        }
+    }
     const eventAllowsTeams = (event.max_team_size ?? 1) > 1;
     const isFreeEvent = !event.registration_fee || Number(event.registration_fee) <= 0;
         
@@ -123,10 +127,16 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
       }
     }
 
-    // 6. Determine Payment Status
+    // 6. Determine Payment Status and calculate final price
     const paymentStatus = isFreeEvent ? "not_required" : "pending";
+    
+    // Calculate final price with discount
+    let finalPrice = event.registration_fee || 0;
+    if (formData.discountAmount && formData.discountAmount > 0) {
+      finalPrice = Math.max(0, finalPrice - formData.discountAmount);
+    }
 
-    // 7. Create the Registration Record
+    // 7. Create the Registration Record with discount information
     const { data: newRegistration, error: registrationError } = await supabase
       .from("registrations")
       .insert({
@@ -136,6 +146,9 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
         registration_type: eventAllowsTeams ? formData.teamStatus : 'solo', // Store how they registered
         status: "pending", // All registrations require organizer approval
         payment_status: paymentStatus,
+        discount_amount: formData.discountAmount || 0, // Store the discount amount
+        points_used: formData.pointsUsed || 0, // Store points used
+        final_price: finalPrice, // Store the final price after discount
       })
       .select('id')
       .single();
@@ -165,7 +178,32 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
       // Log error, but don't fail registration
     }
 
-    // 10. Revalidate Paths & Return Success
+    // 10. Record pending points transaction if points were used
+    if (formData.pointsUsed && formData.pointsUsed > 0) {
+      try {
+        // Create a pending blockchain transaction
+        const { error: pointsError } = await supabase
+          .from('blockchain_transactions')
+          .insert({
+            participant_id: participantId,
+            event_id: eventId,
+            amount: -formData.pointsUsed, // Negative amount for spending
+            transaction_type: 'pending_spend', // Special type for pending transactions
+            description: `Points reserved for event: ${eventId}`,
+            registration_id: newRegistration.id,
+            // The transaction_hash will be generated when the registration is approved
+          });
+          
+        if (pointsError) {
+          console.error("Error creating pending points transaction:", pointsError);
+          // Don't fail registration if points transaction fails
+        }
+      } catch (error) {
+        console.error("Unexpected error recording points transaction:", error);
+      }
+    }
+
+    // 11. Revalidate Paths & Return Success
     revalidatePath(`/events/${eventId}`);
     revalidatePath('/participant/dashboard');
     return { success: true };

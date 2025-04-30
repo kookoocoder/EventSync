@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { registerForEvent, type RegistrationFormData } from "./actions"
 import createClient from "@/lib/supabase/client"
+import { PointDiscountSelector } from "./PointDiscountSelector"
 
 // Define the structure for the event data we expect
 interface EventData {
@@ -56,8 +57,11 @@ export default function EventRegistrationPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [generatedQRCode, setGeneratedQRCode] = useState<string | null>(null)
-  const [userData, setUserData] = useState<{fullName: string, email: string} | null>(null)
+  const [userData, setUserData] = useState<{fullName: string, email: string, id: string} | null>(null)
   const [isAlreadyRegistered, setIsAlreadyRegistered] = useState<{status: string} | null>(null)
+  const [discountAmount, setDiscountAmount] = useState<number>(0)
+  const [pointsToUse, setPointsToUse] = useState<number>(0)
+  const [discountedFee, setDiscountedFee] = useState<number | null>(null)
   
   // Updated formData state to reflect simplified fields
   const [formData, setFormData] = useState<Partial<RegistrationFormData>>({
@@ -70,7 +74,8 @@ export default function EventRegistrationPage({
     teamMembers: "",
     lookingFor: "",
     transactionId: "",
-    // Removed experience, motivation
+    pointsUsed: 0,
+    discountAmount: 0,
   })
 
   // Determine if the event allows teams
@@ -110,6 +115,24 @@ export default function EventRegistrationPage({
     }
   };
 
+  // Add handler for discount changes
+  const handleDiscountChange = (discount: number, points: number) => {
+    setDiscountAmount(discount);
+    setPointsToUse(points);
+    
+    // Update discounted fee and regenerate QR code if event exists
+    if (event?.registration_fee) {
+      const newDiscountedFee = Math.max(0, event.registration_fee - discount);
+      setDiscountedFee(newDiscountedFee);
+      
+      // Regenerate QR code with discounted amount if UPI is available
+      if (event.upi_id && newDiscountedFee > 0) {
+        generateQRCode(event.upi_id, newDiscountedFee.toString())
+          .then(qrCode => setGeneratedQRCode(qrCode));
+      }
+    }
+  };
+
   // Fetch event data and user profile data
   useEffect(() => {
     const fetchEventAndUserData = async () => {
@@ -126,6 +149,9 @@ export default function EventRegistrationPage({
           router.push('/login?message=Please log in to register for the event');
           return;
         }
+
+        // Store the actual user ID for blockchain API calls
+        const actualUserId = authData.session.user.id;
 
         // Check if user is already registered for this event
         const { data: registrationData, error: registrationError } = await supabase
@@ -173,10 +199,11 @@ export default function EventRegistrationPage({
         
         console.log("Setting user data:", { fullName: userName, email: userEmail });
         
-        // Set user data for display
+        // Set user data for display and tracking
         setUserData({
           fullName: userName,
-          email: userEmail
+          email: userEmail,
+          id: actualUserId // Add user ID to userData
         });
         
         // Update form data with user information
@@ -200,6 +227,8 @@ export default function EventRegistrationPage({
         
         // Generate QR code if this is a paid event with UPI ID
         if (eventData.registration_fee && Number(eventData.registration_fee) > 0 && eventData.upi_id) {
+          // Initialize with full price
+          setDiscountedFee(Number(eventData.registration_fee));
           const qrCode = await generateQRCode(eventData.upi_id, eventData.registration_fee.toString());
           setGeneratedQRCode(qrCode);
         }
@@ -325,21 +354,15 @@ export default function EventRegistrationPage({
     setError(null);
 
     try {
-      const completeFormData: RegistrationFormData = {
-        fullName: formData.fullName || "",
-        email: formData.email || "",
-        phone: formData.phone || "",
-        skills: formData.skills || "",
-        teamStatus: eventAllowsTeams ? (formData.teamStatus || 'solo') : 'solo',
-        teamName: eventAllowsTeams && formData.teamStatus === 'have-team' ? formData.teamName : undefined,
-        teamMembers: eventAllowsTeams && formData.teamStatus === 'have-team' ? formData.teamMembers : undefined,
-        lookingFor: eventAllowsTeams && formData.teamStatus === 'looking' ? formData.lookingFor : undefined,
-        paymentScreenshot: paymentScreenshot, // Pass null if free
-        transactionId: formData.transactionId || undefined,
-        // Removed experience, motivation
+      // Include points and discount in form data
+      const finalFormData: RegistrationFormData = {
+        ...formData as RegistrationFormData,
+        paymentScreenshot,
+        pointsUsed: pointsToUse,
+        discountAmount: discountAmount
       };
       
-      const result = await registerForEvent(eventId, completeFormData);
+      const result = await registerForEvent(eventId, finalFormData);
       
       if (!result.success) {
         throw new Error(result.error || "Registration failed");
@@ -699,13 +722,37 @@ export default function EventRegistrationPage({
                           <CardDescription>Please complete the payment to proceed.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          <Alert>
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>Registration Fee: ${event.registration_fee}</AlertTitle>
+                          <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+                            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            <AlertTitle>Registration Fee: ₹{event?.registration_fee}</AlertTitle>
                             <AlertDescription>
                               Follow the instructions below to pay the registration fee.
                             </AlertDescription>
                           </Alert>
+
+                          {event?.registration_fee && event.registration_fee > 0 && userData && (
+                            <div className="mb-6">
+                              <PointDiscountSelector 
+                                userId={userData?.id || ''}
+                                eventId={eventId}
+                                registrationFee={event.registration_fee}
+                                onDiscountChange={handleDiscountChange}
+                              />
+                              
+                              {discountAmount > 0 && (
+                                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900 dark:border-green-800">
+                                  <p className="font-medium flex items-center">
+                                    <CheckCircle className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
+                                    Discount Applied: ₹{discountAmount.toFixed(2)}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    New total: ₹{discountedFee?.toFixed(2) || '0.00'} 
+                                    ({pointsToUse} points will be deducted upon approval)
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           <div className="rounded-lg border p-6 text-center">
                             <h3 className="text-lg font-medium mb-4">Scan QR Code or use UPI ID</h3>
@@ -720,7 +767,7 @@ export default function EventRegistrationPage({
                             )}
                             <div className="text-sm text-muted-foreground mb-4">
                               {event.upi_id && <p>UPI ID: {event.upi_id}</p>}
-                              <p>Amount: ${event.registration_fee}</p>
+                              <p>Amount: ₹{discountedFee?.toFixed(2) || event?.registration_fee}</p>
                             </div>
                             <Button type="button" variant="secondary" className="w-full" onClick={handlePaymentComplete}>
                               I Have Completed the Payment
@@ -817,7 +864,7 @@ export default function EventRegistrationPage({
                                   "Participating Solo"
                                 }</p>
                               )}
-                              <p><strong>Fee:</strong> {isFreeEvent ? "Free Event" : `$${event.registration_fee} (Pending Verification)`}</p>
+                              <p><strong>Fee:</strong> {isFreeEvent ? "Free Event" : `₹${event?.registration_fee} (Pending Verification)`}</p>
                             </AlertDescription>
                           </Alert>
 
@@ -883,7 +930,7 @@ export default function EventRegistrationPage({
                       <CreditCard className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-medium text-foreground">Registration Fee</p>
-                        <p className="text-muted-foreground">{isFreeEvent ? "Free" : `$${event?.registration_fee}`}</p>
+                        <p className="text-muted-foreground">{isFreeEvent ? "Free" : `₹${event?.registration_fee}`}</p>
                       </div>
                     </div>
                     

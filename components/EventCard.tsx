@@ -168,7 +168,7 @@ export function EventCard({ event, isLive = false, isPast = false, isHackathon =
             <div className="px-4 mb-2">
               <div className="flex items-center font-medium">
                 <Badge variant="outline" className="mr-2">
-                  ${event.registration_fee}
+                  ₹{event.registration_fee}
                 </Badge>
                 <span className="text-xs text-muted-foreground">Registration Fee</span>
               </div>
