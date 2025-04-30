@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { ArrowLeft, Download, Eye, Filter, Search, Check, X, RefreshCw } from "lucide-react"
 import { format } from 'date-fns' // Use date-fns for formatting
-import React from "react" // Needed for React.use?
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,8 +24,6 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -40,25 +37,13 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton" // Added for loading state
 
-// Import the server actions
+// Import the server actions and types
 import {
   approveRegistrationAction,
   rejectRegistrationAction,
   fetchEventRegistrations,
+  type RegistrationUI
 } from "./actions"
-
-// Type Definitions (Keep or move to a types file)
-export interface RegistrationUI {
-  id: string
-  userId: string
-  name: string
-  email: string
-  avatarUrl: string | null
-  registrationDate: string
-  status: "pending" | "approved" | "rejected"
-  answers: Record<string, string>
-  questions: Record<string, { question_text: string, question_type: string }>
-}
 
 type RegistrationStatus = "pending" | "approved" | "rejected" | "all"
 
@@ -96,7 +81,6 @@ export function RegistrationsClient({
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-
   // Process initialRegistrations prop on mount
   useEffect(() => {
     if (initialRegistrations) {
@@ -104,10 +88,6 @@ export function RegistrationsClient({
       setIsLoading(false); // Data is loaded
     } else if (fetchError) {
         setIsLoading(false); // Error occurred during fetch
-        // Optionally show an error message based on fetchError
-    } else {
-        // Handle case where props might be initially undefined/null if fetching is slow
-        // setIsLoading(true); // Keep loading until props arrive
     }
   }, [initialRegistrations, fetchError]);
 
@@ -184,27 +164,75 @@ export function RegistrationsClient({
   // --- Handlers ---
   const handleApprove = async (registrationId: string) => {
     if (!event?.id) return;
-    setIsApproving(true)
+    
+    // Find the registration being approved for local state updates
+    const registrationToApprove = registrations.find(reg => reg.id === registrationId);
+    if (!registrationToApprove) return;
+    
+    // Set local approval state
+    setRegistrations(prev => 
+      prev.map(reg => 
+        reg.id === registrationId 
+          ? { ...reg, status: "approved", isLoading: true } 
+          : reg
+      )
+    );
+    
+    setIsApproving(true);
+    
     try {
-      // Call the server action to approve the registration
-      await approveRegistrationAction(event.id, registrationId);
+      console.log("Approving registration:", registrationId, "for event:", event.id);
       
-      // Option 1: Update locally
-      setRegistrations((prev) =>
-        prev.map((reg) =>
-          reg.id === registrationId ? { ...reg, status: "approved" } : reg
+      // Call the server action to approve the registration
+      const result = await approveRegistrationAction(event.id, registrationId);
+      
+      if (result.success) {
+        // Successfully approved - update the local state to match
+        setRegistrations(prev => 
+          prev.map(reg => 
+            reg.id === registrationId 
+              ? { ...reg, status: "approved", isLoading: false } 
+              : reg
+          )
+        );
+        console.log("Registration approved successfully");
+        
+        // Show confirmation to user
+        alert("Registration approved successfully!");
+      } else if (result.message) {
+        console.info(result.message);
+        // Make sure local state is updated even if already approved
+        setRegistrations(prev => 
+          prev.map(reg => 
+            reg.id === registrationId 
+              ? { ...reg, status: "approved", isLoading: false } 
+              : reg
+          )
+        );
+      } else {
+        throw new Error("Failed to approve registration");
+      }
+      
+      // Refresh the data after UI is updated
+      setTimeout(() => refreshRegistrations(), 1000);
+      
+    } catch (error) {
+      console.error("Failed to approve registration:", error);
+      alert("Failed to approve registration. Please try again.");
+      
+      // Reset the local state for this registration
+      setRegistrations(prev => 
+        prev.map(reg => 
+          reg.id === registrationId 
+            ? { ...registrationToApprove, isLoading: false } 
+            : reg
         )
       );
       
-      // Option 2: Refresh data from server to ensure consistency
+      // Force refresh to ensure UI is in sync with server state
       await refreshRegistrations();
-      
-      // Optional: Show success toast/message
-    } catch (error) {
-      console.error("Failed to approve registration:", error)
-      // Optional: Show error toast/message
     } finally {
-      setIsApproving(false)
+      setIsApproving(false);
     }
   }
 
@@ -221,24 +249,22 @@ export function RegistrationsClient({
       // Call the server action to reject the registration
       await rejectRegistrationAction(event.id, selectedRegistration.id, rejectionReason);
       
-      // Option 1: Update locally
+      // Update locally
       setRegistrations((prev) =>
         prev.map((reg) =>
           reg.id === selectedRegistration.id
-            ? { ...reg, status: "rejected", rejectionReason: rejectionReason }
+            ? { ...reg, status: "rejected" }
             : reg
         )
       );
       
-      // Option 2: Refresh data from server to ensure consistency
+      // Refresh data from server to ensure consistency
       await refreshRegistrations();
       
       setIsRejectDialogOpen(false)
       setSelectedRegistration(null)
-      // Optional: Show success toast/message
     } catch (error) {
       console.error("Failed to reject registration:", error)
-      // Optional: Show error toast/message
     } finally {
       setIsRejecting(false)
     }
@@ -253,11 +279,8 @@ export function RegistrationsClient({
     setSelectedRegistration(null)
   }
 
-   const handleCloseRejectDialog = () => {
+  const handleCloseRejectDialog = () => {
     setIsRejectDialogOpen(false);
-    // Keep selectedRegistration if the main details dialog should remain open after cancelling rejection
-    // If cancelling rejection should also close details, uncomment the line below:
-    // setSelectedRegistration(null);
   };
 
   // --- Render Logic ---
@@ -266,15 +289,14 @@ export function RegistrationsClient({
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <p className="text-red-500 mb-4">Error loading registrations: {fetchError}</p>
-        <Link href="/organizer/events">
+        <Link href="/organizer/dashboard">
             <Button variant="outline">
-                 <ArrowLeft className="mr-2 h-4 w-4" /> Go Back to Events
+                 <ArrowLeft className="mr-2 h-4 w-4" /> Go Back to Dashboard
             </Button>
         </Link>
       </div>
     );
   }
-
 
   // Loading state using skeletons
   const renderSkeletons = (count = 5) => (
@@ -294,6 +316,9 @@ export function RegistrationsClient({
         </TableCell>
         <TableCell>
            <Skeleton className="h-4 w-[80px]" />
+        </TableCell>
+        <TableCell>
+           <Skeleton className="h-4 w-[100px]" />
         </TableCell>
         <TableCell className="text-right">
             <div className="flex justify-end gap-2">
@@ -337,6 +362,9 @@ export function RegistrationsClient({
             {registration.status.charAt(0).toUpperCase() + registration.status.slice(1)}
         </Badge>
       </TableCell>
+      <TableCell>
+        {registration.registrationType.charAt(0).toUpperCase() + registration.registrationType.slice(1)}
+      </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
           <Button
@@ -363,7 +391,7 @@ export function RegistrationsClient({
                 variant="ghost"
                 size="icon"
                 onClick={() => handleReject(registration)}
-                disabled={isRejecting} // Could disable if rejection dialog is open for THIS user
+                disabled={isRejecting} 
                 title="Reject"
                 className="text-red-500 hover:text-red-600"
               >
@@ -376,14 +404,12 @@ export function RegistrationsClient({
     </TableRow>
   );
 
-
   return (
     <div className="flex flex-col h-screen">
-      {/* Header stays in the layout or page, removed from here */}
        <main className="flex-1 overflow-auto p-4 md:p-6">
          {/* Back Button and Event Title */}
          <div className="flex items-center gap-4 mb-4">
-             <Link href="/organizer/events" passHref>
+             <Link href="/organizer/dashboard" passHref>
                 <Button variant="outline" size="icon">
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
@@ -432,7 +458,6 @@ export function RegistrationsClient({
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline">
-                        {/* Icon could change based on sort */}
                         Sort By
                         </Button>
                     </DropdownMenuTrigger>
@@ -457,7 +482,7 @@ export function RegistrationsClient({
                 </Button>
 
                  {/* Export Button (Placeholder) */}
-                <Button variant="outline" disabled> {/* Add export functionality later */}
+                <Button variant="outline" disabled> 
                     <Download className="mr-2 h-4 w-4" />
                     Export
                 </Button>
@@ -474,6 +499,7 @@ export function RegistrationsClient({
                     <TableHead>Participant</TableHead>
                     <TableHead>Registered At</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -484,7 +510,7 @@ export function RegistrationsClient({
                             ? sortedAndFilteredRegistrations.map(renderRegistrationRow)
                             : (
                                 <TableRow>
-                                <TableCell colSpan={4} className="text-center py-10">
+                                <TableCell colSpan={5} className="text-center py-10">
                                     No registrations found matching your criteria.
                                 </TableCell>
                                 </TableRow>
@@ -507,27 +533,39 @@ export function RegistrationsClient({
             </DialogHeader>
             {selectedRegistration && (
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                 <p><strong>Status:</strong> <Badge variant={
-                        selectedRegistration.status === "approved" ? "default" :
-                        selectedRegistration.status === "rejected" ? "destructive" :
-                        "secondary"
-                    }>
-                        {selectedRegistration.status.charAt(0).toUpperCase() + selectedRegistration.status.slice(1)}
-                    </Badge>
-                </p>
-                 <p><strong>Registered At:</strong> {format(new Date(selectedRegistration.registrationDate), "PPP p")}</p>
-
-                 <h4 className="font-semibold mt-4 border-t pt-4">Application Answers</h4>
-                 {Object.entries(selectedRegistration.answers).map(([questionId, answer]) => (
-                    <div key={questionId} className="mb-3">
-                       <Label className="font-medium">{selectedRegistration.questions[questionId]?.question_text || `Question ID: ${questionId}`}</Label>
-                       <p className="text-sm text-muted-foreground whitespace-pre-wrap">{answer || '-'}</p>
-                    </div>
-                 ))}
+                 <div className="grid grid-cols-2 gap-4">
+                   <div>
+                     <p className="text-sm text-muted-foreground">Status</p>
+                     <Badge variant={
+                          selectedRegistration.status === "approved" ? "default" :
+                          selectedRegistration.status === "rejected" ? "destructive" :
+                          "secondary"
+                      }>
+                          {selectedRegistration.status.charAt(0).toUpperCase() + selectedRegistration.status.slice(1)}
+                      </Badge>
+                   </div>
+                   <div>
+                     <p className="text-sm text-muted-foreground">Registration Type</p>
+                     <p>{selectedRegistration.registrationType.charAt(0).toUpperCase() + selectedRegistration.registrationType.slice(1)}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm text-muted-foreground">Registered At</p>
+                     <p>{format(new Date(selectedRegistration.registrationDate), "PPP p")}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm text-muted-foreground">Payment Status</p>
+                     <p>{selectedRegistration.paymentStatus || 'Not Applicable'}</p>
+                   </div>
+                   {selectedRegistration.teamId && (
+                     <div className="col-span-2">
+                       <p className="text-sm text-muted-foreground">Team ID</p>
+                       <p>{selectedRegistration.teamId}</p>
+                     </div>
+                   )}
+                 </div>
                 </div>
             )}
              <DialogFooter className="mt-4">
-                {/* Add actions specific to the details view if needed, e.g., Edit */}
                 {selectedRegistration?.status === 'pending' && (
                     <div className="flex gap-2">
                         <Button variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleReject(selectedRegistration)} disabled={isApproving || isRejecting}>Reject</Button>
@@ -548,14 +586,14 @@ export function RegistrationsClient({
                 <DialogHeader>
                     <DialogTitle>Confirm Rejection</DialogTitle>
                     <DialogDescription>
-                        Please provide a reason for rejecting {selectedRegistration?.name}'s registration. This reason might be shared with the applicant.
+                        Are you sure you want to reject {selectedRegistration?.name}'s registration?
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    <Label htmlFor="rejectionReason" className="sr-only">Rejection Reason</Label>
+                    <Label htmlFor="rejectionReason" className="text-sm">Rejection Reason (Optional)</Label>
                     <Textarea
                         id="rejectionReason"
-                        placeholder="Enter rejection reason (optional but recommended)"
+                        placeholder="Enter reason for rejection (optional)"
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
                         className="min-h-[100px]"
