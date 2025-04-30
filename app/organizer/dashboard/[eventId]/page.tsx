@@ -328,12 +328,25 @@ export default function EventDashboardPage() {
         .eq('id', eventId)
       
       if (error) throw error
+
+      // Update eventData to reflect changes
+      setEventData(prev => prev ? {
+        ...prev,
+        ...eventForm
+      } : null)
       
-    alert("Event updated successfully!")
+      alert("Event updated successfully!")
     } catch (err: any) {
       console.error("Error saving event changes:", err)
+      // Revert form changes on error
+      setEventForm(eventData)
       alert(`Failed to update event: ${err.message}`)
     }
+  }
+
+  // Add a function to handle publish status change specifically
+  const handlePublishStatusChange = async (checked: boolean) => {
+    handleFormChange("is_published", checked)
   }
 
   // Helper function to get initials from name
@@ -729,7 +742,7 @@ export default function EventDashboardPage() {
             <div className="flex items-center space-x-2">
               <Switch 
                   checked={eventForm?.is_published}
-                  onCheckedChange={(checked) => handleFormChange("is_published", checked)}
+                  onCheckedChange={handlePublishStatusChange}
               />
               <Label>
                   {eventForm?.is_published ? "Published" : "Draft"}
