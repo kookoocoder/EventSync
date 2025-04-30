@@ -3,7 +3,7 @@
 import { useState, type FormEvent, type ChangeEvent, useEffect, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users, AlertTriangle, Lock, CheckCircle } from "lucide-react"
 import React from "react"
 import QRCode from 'qrcode'
 
@@ -56,6 +56,8 @@ export default function EventRegistrationPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [generatedQRCode, setGeneratedQRCode] = useState<string | null>(null)
+  const [userData, setUserData] = useState<{fullName: string, email: string} | null>(null)
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState<{status: string} | null>(null)
   
   // Updated formData state to reflect simplified fields
   const [formData, setFormData] = useState<Partial<RegistrationFormData>>({
@@ -108,37 +110,107 @@ export default function EventRegistrationPage({
     }
   };
 
-  // Fetch event data
+  // Fetch event data and user profile data
   useEffect(() => {
-    const fetchEvent = async () => {
+    const fetchEventAndUserData = async () => {
       setLoading(true);
       setError(null);
       try {
         const supabase = createClient();
-        const { data, error: dbError } = await supabase
+        
+        // Authentication check and user data fetch
+        const { data: authData, error: authError } = await supabase.auth.getSession();
+        
+        if (authError || !authData.session) {
+          sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+          router.push('/login?message=Please log in to register for the event');
+          return;
+        }
+
+        // Check if user is already registered for this event
+        const { data: registrationData, error: registrationError } = await supabase
+          .from("registrations")
+          .select("status")
+          .eq("event_id", eventId)
+          .eq("participant_id", authData.session.user.id)
+          .single();
+        
+        if (registrationData) {
+          console.log("User already registered with status:", registrationData.status);
+          setIsAlreadyRegistered(registrationData);
+        }
+
+        console.log("Auth user:", authData.session.user);
+        
+        // Get user metadata for debugging
+        const userMeta = authData.session.user.user_metadata;
+        console.log("User metadata:", userMeta);
+        
+        // Fetch user profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from("participants")
+          .select("full_name, email")
+          .eq("id", authData.session.user.id)
+          .single();
+        
+        console.log("Profile data:", profileData);
+        
+        // Try multiple sources for the name with better fallbacks
+        let userName = '';
+        
+        // Check profile data first
+        if (profileData?.full_name) {
+          userName = profileData.full_name;
+        } 
+        // Then check auth metadata with multiple possible keys
+        else if (userMeta) {
+          userName = userMeta.full_name || userMeta.name || userMeta.user_name || 
+                    userMeta.preferred_username || userMeta.username || '';
+        }
+        
+        // Get email from profile or auth
+        const userEmail = profileData?.email || authData.session.user.email || '';
+        
+        console.log("Setting user data:", { fullName: userName, email: userEmail });
+        
+        // Set user data for display
+        setUserData({
+          fullName: userName,
+          email: userEmail
+        });
+        
+        // Update form data with user information
+        setFormData(prev => ({ 
+          ...prev, 
+          fullName: userName,
+          email: userEmail 
+        }));
+
+        // Fetch event data
+        const { data: eventData, error: dbError } = await supabase
           .from("events")
           .select("id, name, description, start_date, end_date, location, registration_fee, min_team_size, max_team_size, registration_end_date, banner_image, upi_id")
           .eq("id", eventId)
           .single();
         
         if (dbError) throw dbError;
-        if (!data) throw new Error("Event not found");
+        if (!eventData) throw new Error("Event not found");
         
-        setEvent(data as EventData);
+        setEvent(eventData as EventData);
         
         // Generate QR code if this is a paid event with UPI ID
-        if (data.registration_fee && Number(data.registration_fee) > 0 && data.upi_id) {
-          const qrCode = await generateQRCode(data.upi_id, data.registration_fee.toString());
+        if (eventData.registration_fee && Number(eventData.registration_fee) > 0 && eventData.upi_id) {
+          const qrCode = await generateQRCode(eventData.upi_id, eventData.registration_fee.toString());
           setGeneratedQRCode(qrCode);
         }
         
         // Auto-complete payment for free events
-        if (!data.registration_fee || Number(data.registration_fee) <= 0) {
+        if (!eventData.registration_fee || Number(eventData.registration_fee) <= 0) {
           setPaymentComplete(true);
         }
 
         // Set initial team status based on event config
-        if (!((data.max_team_size ?? 1) > 1)) {
+        if (!((eventData.max_team_size ?? 1) > 1)) {
           setFormData(prev => ({ ...prev, teamStatus: 'solo' }));
         } else {
           // If teams are allowed, default might be looking or solo based on preference
@@ -146,27 +218,14 @@ export default function EventRegistrationPage({
         }
 
       } catch (err: any) {
-        console.error("Error fetching event:", err);
+        console.error("Error fetching data:", err);
         setError(err.message || "Failed to load event details");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEvent();
-    
-    // Authentication check
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data, error: authError } = await supabase.auth.getSession();
-      
-      if (authError || !data.session) {
-        sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
-        router.push('/login?message=Please log in to register for the event');
-      }
-    };
-    
-    checkAuth();
+    fetchEventAndUserData();
   }, [eventId, router]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -316,15 +375,66 @@ export default function EventRegistrationPage({
     }
   };
 
-  // Show loading state
+  // Show loading state with improved UI
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col">
         <SiteHeader />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin h-8 w-8 border-t-2 border-primary rounded-full mx-auto mb-4"></div>
-            <p>Loading event details...</p>
+          <div className="text-center p-8 max-w-md">
+            <div className="animate-spin h-12 w-12 border-t-4 border-primary rounded-full mx-auto mb-6"></div>
+            <h3 className="text-xl font-medium mb-2">Loading Registration Form</h3>
+            <p className="text-muted-foreground">Retrieving event details and preparing your form...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show already registered state
+  if (isAlreadyRegistered) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="flex-1">
+          <div className="container max-w-4xl mx-auto py-12 px-4">
+            <Button variant="ghost" onClick={() => router.back()} className="mb-6 group transition-all hover:bg-muted/80">
+              <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to Event
+            </Button>
+            
+            <Card className="overflow-hidden border-muted/60 shadow-md">
+              <div className="bg-primary/10 p-6 flex items-center border-b">
+                <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-500 mr-4 flex-shrink-0" />
+                <div>
+                  <h2 className="text-2xl font-semibold mb-1">
+                    You're Already Registered
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Registration Status: <span className="font-medium capitalize">{isAlreadyRegistered.status}</span>
+                  </p>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <p className="mb-6">
+                  You've already registered for {event?.name}. You can view your registration details and status in your dashboard.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button asChild>
+                    <Link href="/participant/dashboard">
+                      Go to My Dashboard
+                    </Link>
+                  </Button>
+                  
+                  <Button variant="outline" asChild>
+                    <Link href={`/events/${eventId}`}>
+                      View Event Details
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         </main>
       </div>
@@ -399,63 +509,106 @@ export default function EventRegistrationPage({
   return (
     <>
       <SiteHeader />
-      <div className="container mx-auto max-w-6xl py-8 px-4 mt-8">
-        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Event
+      <div className="container mx-auto max-w-5xl py-8 px-4 mt-4 mb-16">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-6 group transition-all hover:bg-muted/80">
+          <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to Event
         </Button>
+        
         <div className="flex flex-col gap-8">
-          <h1 className="text-3xl font-bold tracking-tight">Register for {event.name}</h1>
+          <div className="space-y-4">
+            <h1 className="text-3xl font-bold tracking-tight">{event?.name ? `Register for ${event.name}` : 'Event Registration'}</h1>
+            <p className="text-muted-foreground">Complete the registration process to secure your spot.</p>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-8">
-             {steps.map((label, index) => (
-               <React.Fragment key={label}>
-                 {renderStepIndicator(index + 1, label)}
-                 {index < steps.length - 1 && <Separator orientation="horizontal" className="w-8 mx-2 hidden sm:block" />}
-               </React.Fragment>
-             ))}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-8 bg-muted/30 p-4 rounded-lg">
+            {steps.map((label, index) => (
+              <React.Fragment key={label}>
+                {renderStepIndicator(index + 1, label)}
+                {index < steps.length - 1 && <Separator orientation="horizontal" className="w-8 mx-2 hidden sm:block" />}
+              </React.Fragment>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             <div className="md:col-span-2">
-              <Card>
+              <Card className="shadow-sm border-muted/60">
                 <form onSubmit={handleSubmit}>
                   {currentStep === stepMap["Personal Info"] && (
                     <>
-                      <CardHeader>
+                      <CardHeader className="pb-4">
                         <CardTitle>Personal Information</CardTitle>
                         <CardDescription>
-Please provide your contact details and relevant skills.
+                          We've pre-filled your profile information. Please complete the rest.
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-5">
                         <div className="space-y-2">
-                          <Label htmlFor="fullName">Full Name</Label>
-                          <Input id="fullName" placeholder="Your Full Name" required value={formData.fullName} onChange={handleInputChange} autoComplete="name" />
+                          <Label htmlFor="fullName" className="flex items-center">
+                            Full Name <Lock className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="fullName" 
+                              value={formData.fullName || ''} 
+                              className="bg-muted/40 text-muted-foreground pr-10" 
+                              readOnly 
+                            />
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Auto-filled from your account</p>
                         </div>
+                        
                         <div className="space-y-2">
-                          <Label htmlFor="email">Email Address</Label>
-                          <Input id="email" type="email" placeholder="your.email@example.com" required value={formData.email} onChange={handleInputChange} autoComplete="email" />
+                          <Label htmlFor="email" className="flex items-center">
+                            Email Address <Lock className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                          </Label>
+                          <div className="relative">
+                            <Input 
+                              id="email" 
+                              type="email" 
+                              value={formData.email || ''} 
+                              className="bg-muted/40 text-muted-foreground pr-10" 
+                              readOnly 
+                            />
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Auto-filled from your account</p>
                         </div>
+                        
                         <div className="space-y-2">
                           <Label htmlFor="phone">Phone Number</Label>
-                          <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" required value={formData.phone} onChange={handleInputChange} autoComplete="tel" />
+                          <Input 
+                            id="phone" 
+                            type="tel" 
+                            placeholder="+1 (555) 123-4567" 
+                            required 
+                            value={formData.phone} 
+                            onChange={handleInputChange} 
+                            autoComplete="tel"
+                            className="focus:border-primary"
+                          />
                         </div>
+                        
                         <div className="space-y-2">
                           <Label htmlFor="skills">Relevant Skills</Label>
                           <Textarea
                             id="skills"
                             placeholder="List your relevant skills, separated by commas (e.g., React, Node.js, Project Management)"
-                            className="min-h-24"
+                            className="min-h-24 resize-y focus:border-primary"
                             required
                             value={formData.skills}
                             onChange={handleInputChange}
                           />
-                           <p className="text-xs text-muted-foreground">This helps organizers and potential teammates understand your expertise.</p>
+                          <p className="text-xs text-muted-foreground">This helps organizers and potential teammates understand your expertise.</p>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-end">
-                        <Button type="button" onClick={handleNextStep}>
-                           Next: {eventAllowsTeams ? "Team Preference" : (isFreeEvent ? "Confirmation" : "Payment")}
+                      <CardFooter className="flex justify-end pt-4 border-t">
+                        <Button 
+                          type="button" 
+                          onClick={handleNextStep}
+                          className="transition-all"
+                        >
+                          Next: {eventAllowsTeams ? "Team Preference" : (isFreeEvent ? "Confirmation" : "Payment")}
                         </Button>
                       </CardFooter>
                     </>
@@ -691,53 +844,79 @@ Please provide your contact details and relevant skills.
               </Card>
             </div>
 
-            <div className="md:col-span-1">
-              <Card>
-                <CardHeader>
+            <div className="md:col-span-1 space-y-6">
+              <Card className="shadow-sm border-muted/60 sticky top-24">
+                <CardHeader className="pb-3">
                   <CardTitle>Event Details</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {event.banner_image && (
-                    <div className="aspect-video relative overflow-hidden rounded-md bg-muted">
-                      <img src={event.banner_image} alt={event.name} className="w-full h-full object-cover" />
-                  </div>
+                <CardContent className="space-y-5">
+                  {event?.banner_image && (
+                    <div className="aspect-video relative overflow-hidden rounded-lg bg-muted">
+                      <img src={event.banner_image} alt={event.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                    </div>
                   )}
-                  <h3 className="text-xl font-semibold pt-2">{event.name}</h3>
-                  {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
+                  <h3 className="text-xl font-semibold pt-2">{event?.name}</h3>
+                  {event?.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-3">{event.description}</p>
+                  )}
+                  
                   <Separator />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center">
-                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{formatDate(event.start_date)} - {formatDate(event.end_date)}</span>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start">
+                      <Calendar className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-foreground">Date</p>
+                        <p className="text-muted-foreground">{formatDate(event?.start_date)} - {formatDate(event?.end_date)}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <MapPin className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{event.location || "Online"}</span>
+                    
+                    <div className="flex items-start">
+                      <MapPin className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-foreground">Location</p>
+                        <p className="text-muted-foreground">{event?.location || "Online"}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <CreditCard className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>Fee: {isFreeEvent ? "Free" : `$${event.registration_fee}`}</span>
+                    
+                    <div className="flex items-start">
+                      <CreditCard className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-foreground">Registration Fee</p>
+                        <p className="text-muted-foreground">{isFreeEvent ? "Free" : `$${event?.registration_fee}`}</p>
+                      </div>
                     </div>
+                    
                     {eventAllowsTeams && (
-                      <div className="flex items-center">
-                        <Users className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span>Team Size: {event.min_team_size || 1} - {event.max_team_size || 4} members</span>
-                    </div>
+                      <div className="flex items-start">
+                        <Users className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-foreground">Team Size</p>
+                          <p className="text-muted-foreground">{event?.min_team_size || 1} - {event?.max_team_size || 4} members</p>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <Separator />
-                  <div className="rounded-lg bg-muted p-3">
-                    <h4 className="font-medium mb-1 text-sm">Registration Deadline</h4>
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{formatDate(event.registration_end_date)}</span>
-                    </div>
-                  </div>
+                  
+                  {event?.registration_end_date && (
+                    <>
+                      <Separator />
+                      <div className="rounded-lg bg-muted/50 p-4 border border-muted">
+                        <div className="flex items-start">
+                          <Calendar className="mr-3 h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-foreground">Registration Deadline</p>
+                            <p className="text-muted-foreground">{formatDate(event.registration_end_date)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card className="mt-4">
-                <CardHeader>
+              <Card className="shadow-sm border-muted/60">
+                <CardHeader className="pb-3">
                   <CardTitle>Need Help?</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -745,15 +924,13 @@ Please provide your contact details and relevant skills.
                     Questions about registration or the event? Contact the organizers.
                   </p>
                   <Button variant="outline" className="w-full" asChild>
-                    <Link href="/">Contact Support (Placeholder)</Link>
+                    <Link href="/contact">Contact Support</Link>
                   </Button>
                 </CardContent>
               </Card>
             </div>
           </div>
         </div>
-
-        <div className="flex-grow"></div>
       </div>
     </>
   );
