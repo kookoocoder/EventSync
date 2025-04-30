@@ -96,7 +96,12 @@ export default async function ParticipantDashboardPage() {
         // Fetch blockchain points
         let pointsBalance = 0;
         try {
-            const pointsResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/blockchain/balance?participantId=${user.id}`, {
+            // For server components, we need absolute URLs
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+            const apiUrl = new URL(`/api/blockchain/balance`, baseUrl);
+            apiUrl.searchParams.append('participantId', user.id);
+            
+            const pointsResponse = await fetch(apiUrl.toString(), {
                 headers: { 'Cache-Control': 'no-store' }
             });
             
