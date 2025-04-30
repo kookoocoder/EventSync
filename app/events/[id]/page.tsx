@@ -4,6 +4,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { createServerComponentClient } from "@/lib/supabase/server";
 import { Calendar, Clock, Code, GraduationCap, MapPin, Trophy, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,11 @@ export default async function EventPage(props: { params: { id: string } }) {
   const { id } = await props.params;
 
   const supabase = await createServerComponentClient();
+  
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Get event details
   const { data: event, error } = await supabase
     .from("events")
     .select("*")
@@ -44,6 +50,19 @@ export default async function EventPage(props: { params: { id: string } }) {
 
   if (error || !event) {
     notFound();
+  }
+
+  // Check if user is already registered
+  let registration = null;
+  if (user) {
+    const { data: regData } = await supabase
+      .from("registrations")
+      .select("id, status, payment_status")
+      .eq("event_id", id)
+      .eq("participant_id", user.id)
+      .maybeSingle();
+    
+    registration = regData;
   }
 
   const formatDateRange = () => {
@@ -82,6 +101,76 @@ export default async function EventPage(props: { params: { id: string } }) {
     const endDate = event.end_date ? new Date(event.end_date) : null;
 
     return startDate && endDate && now >= startDate && now <= endDate;
+  };
+
+  const getRegistrationButton = () => {
+    if (isPastEvent()) {
+      return (
+        <Button className="w-full" variant="outline" asChild>
+          <Link href={`/events/${event.id}/results`}>View Results</Link>
+        </Button>
+      );
+    }
+
+    if (!user) {
+      return (
+        <Button className="w-full" size="lg" asChild>
+          <Link href={`/login?redirectTo=/events/${event.id}`}>
+            Login to Register
+          </Link>
+        </Button>
+      );
+    }
+
+    if (registration) {
+      const status = registration.status;
+      const paymentStatus = registration.payment_status;
+      
+      if (status === 'approved') {
+        return (
+          <div className="space-y-2">
+            <Badge className="w-full bg-green-500 py-2 text-center">Registration Approved</Badge>
+            <Button className="w-full" variant="outline" asChild>
+              <Link href="/participant/dashboard">View Registration</Link>
+            </Button>
+          </div>
+        );
+      }
+      
+      if (status === 'rejected') {
+        return (
+          <div className="space-y-2">
+            <Badge className="w-full bg-red-500 py-2 text-center">Registration Rejected</Badge>
+            <Button className="w-full" variant="outline" asChild>
+              <Link href="/participant/dashboard">View Details</Link>
+            </Button>
+          </div>
+        );
+      }
+      
+      if (status === 'pending') {
+        const message = paymentStatus === 'pending' 
+          ? "Payment Verification Pending" 
+          : "Approval Pending";
+        
+        return (
+          <div className="space-y-2">
+            <Badge className="w-full bg-yellow-500 py-2 text-center">{message}</Badge>
+            <Button className="w-full" variant="outline" asChild>
+              <Link href="/participant/dashboard">View Status</Link>
+            </Button>
+          </div>
+        );
+      }
+    }
+
+    return (
+      <Button className="w-full" size="lg" asChild disabled={!isRegistrationOpen()}>
+        <Link href={`/events/${event.id}/register`}>
+          {isLiveEvent() ? "Join Now" : "Register for Event"}
+        </Link>
+      </Button>
+    );
   };
 
   return (
@@ -248,17 +337,7 @@ export default async function EventPage(props: { params: { id: string } }) {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex flex-col gap-4">
-                      {isPastEvent() ? (
-                        <Button className="w-full" variant="outline" asChild>
-                          <Link href={`/events/${event.id}/results`}>View Results</Link>
-                        </Button>
-                      ) : (
-                        <Button className="w-full" size="lg" asChild disabled={!isRegistrationOpen()}>
-                          <Link href={`/events/${event.id}/register`}>
-                            {isLiveEvent() ? "Join Now" : "Register for Event"}
-                          </Link>
-                        </Button>
-                      )}
+                      {getRegistrationButton()}
 
                       {event.registration_end_date && (
                         <div className="rounded-lg bg-muted p-4">
