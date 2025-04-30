@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users, AlertTriangle } from "lucide-react"
 import React from "react"
+import QRCode from 'qrcode'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,17 +35,16 @@ interface EventData {
   registration_end_date?: string | null;
   banner_image?: string | null;
   upi_id?: string | null;
-  qr_code_url?: string | null;
+  // qr_code_url field removed from the database
 }
 
 export default function EventRegistrationPage({ 
-  params 
+  params: { id }
 }: { 
   params: { id: string } 
 }) {
-  // Use React.use to unwrap the params promise
-  const resolvedParams = React.use(params);
-  const eventId = resolvedParams.id;
+  // Use id directly from destructured params
+  const eventId = id;
   
   const router = useRouter()
   const { toast } = useToast()
@@ -55,6 +55,7 @@ export default function EventRegistrationPage({
   const [event, setEvent] = useState<EventData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [generatedQRCode, setGeneratedQRCode] = useState<string | null>(null)
   
   // Updated formData state to reflect simplified fields
   const [formData, setFormData] = useState<Partial<RegistrationFormData>>({
@@ -86,6 +87,27 @@ export default function EventRegistrationPage({
 
   const totalSteps = event ? calculateTotalSteps() : 2; // Initial estimate before event loads
 
+  // Function to generate QR code from UPI ID and amount
+  const generateQRCode = async (upiId: string, amount: string) => {
+    try {
+      // Create UPI payment URL
+      const upiUrl = `upi://pay?pa=${upiId}&am=${amount}&cu=INR`;
+      // Generate QR code as data URL
+      const qrDataUrl = await QRCode.toDataURL(upiUrl, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+      return qrDataUrl;
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      return null;
+    }
+  };
+
   // Fetch event data
   useEffect(() => {
     const fetchEvent = async () => {
@@ -95,7 +117,7 @@ export default function EventRegistrationPage({
         const supabase = createClient();
         const { data, error: dbError } = await supabase
           .from("events")
-          .select("id, name, description, start_date, end_date, location, registration_fee, min_team_size, max_team_size, registration_end_date, banner_image, upi_id, qr_code_url")
+          .select("id, name, description, start_date, end_date, location, registration_fee, min_team_size, max_team_size, registration_end_date, banner_image, upi_id")
           .eq("id", eventId)
           .single();
         
@@ -103,6 +125,12 @@ export default function EventRegistrationPage({
         if (!data) throw new Error("Event not found");
         
         setEvent(data as EventData);
+        
+        // Generate QR code if this is a paid event with UPI ID
+        if (data.registration_fee && Number(data.registration_fee) > 0 && data.upi_id) {
+          const qrCode = await generateQRCode(data.upi_id, data.registration_fee.toString());
+          setGeneratedQRCode(qrCode);
+        }
         
         // Auto-complete payment for free events
         if (!data.registration_fee || Number(data.registration_fee) <= 0) {
@@ -542,14 +570,14 @@ Please provide your contact details and relevant skills.
 
                           <div className="rounded-lg border p-6 text-center">
                             <h3 className="text-lg font-medium mb-4">Scan QR Code or use UPI ID</h3>
-                            {event.qr_code_url && (
-                            <div className="flex justify-center mb-4">
-                              <img
-                                  src={event.qr_code_url}
-                                alt="Payment QR Code"
+                            {generatedQRCode && (
+                              <div className="flex justify-center mb-4">
+                                <img
+                                  src={generatedQRCode}
+                                  alt="Payment QR Code"
                                   className="h-64 w-64 object-contain border rounded-md"
-                              />
-                            </div>
+                                />
+                              </div>
                             )}
                             <div className="text-sm text-muted-foreground mb-4">
                               {event.upi_id && <p>UPI ID: {event.upi_id}</p>}

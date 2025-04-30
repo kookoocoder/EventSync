@@ -1,13 +1,18 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { createServerComponentClient } from "@/lib/supabase/server";
-import { Calendar, Clock, Code, GraduationCap, MapPin, Trophy, Users } from "lucide-react";
+import { Calendar, Clock, Code, GraduationCap, MapPin, Trophy, Users, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
+import QRCode from 'qrcode';
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteHeader } from "@/components/SiteHeader";
 
@@ -33,25 +38,70 @@ export async function generateMetadata(props: { params: { id: string } }): Promi
   };
 }
 
-export default async function EventPage(props: { params: { id: string } }) {
-  const { id } = await props.params;
+export default async function EventPage({ 
+  params: { id } 
+}: { 
+  params: { id: string } 
+}) {
+  // Use id directly from destructured params
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [generatedQRCode, setGeneratedQRCode] = useState<string | null>(null);
+
+  // Function to generate QR code from UPI ID and amount
+  const generateQRCode = async (upiId: string, amount: string) => {
+    try {
+      // Create UPI payment URL
+      const upiUrl = `upi://pay?pa=${upiId}&am=${amount}&cu=INR`;
+      // Generate QR code as data URL
+      const qrDataUrl = await QRCode.toDataURL(upiUrl, {
+        width: 192, // Smaller size for the details page
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+      return qrDataUrl;
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    // Fetch event data
+    const fetchEvent = async () => {
+      try {
+        const response = await fetch(`/api/events/${id}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch event: ${response.statusText}`);
+        }
+        const eventData = await response.json();
+        setEvent(eventData);
+        
+        // Generate QR code if this is a paid event with UPI ID
+        if (eventData.registration_fee > 0 && eventData.upi_id) {
+          const qrCode = await generateQRCode(eventData.upi_id, eventData.registration_fee.toString());
+          setGeneratedQRCode(qrCode);
+        }
+      } catch (error: any) {
+        console.error("Error loading event:", error);
+        setError(error.message || "Failed to load event");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [id]);
 
   const supabase = await createServerComponentClient();
   
   // Get the current user
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Get event details
-  const { data: event, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error || !event) {
-    notFound();
-  }
-
   // Check if user is already registered
   let registration = null;
   if (user) {
@@ -406,15 +456,9 @@ export default async function EventPage(props: { params: { id: string } }) {
                       <CardTitle>Payment Information</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {event.qr_code_url && (
-                        <div className="mb-4 flex justify-center">
-                          <img 
-                            src={event.qr_code_url} 
-                            alt="Payment QR Code"
-                            className="w-32 h-32 object-contain"
-                          />
-                        </div>
-                      )}
+                      <p className="text-sm text-center mb-4">
+                        Payment QR code will be generated during registration.
+                      </p>
                       <p className="text-sm text-center">
                         UPI ID: <span className="font-medium">{event.upi_id}</span>
                       </p>

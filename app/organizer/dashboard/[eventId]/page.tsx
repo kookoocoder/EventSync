@@ -106,6 +106,8 @@ export default function EventDashboardPage() {
                 r.status,
                 r.created_at,
                 r.payment_status,
+                r.payment_screenshot,
+                r.rejection_reason,
                 p.name as participant_name,
                 p.email as participant_email,
                 p.avatar_url,
@@ -389,6 +391,8 @@ export default function EventDashboardPage() {
               r.status,
               r.created_at,
               r.payment_status,
+              r.payment_screenshot,
+              r.rejection_reason,
               p.name as participant_name,
               p.email as participant_email,
               p.avatar_url,
@@ -616,11 +620,12 @@ export default function EventDashboardPage() {
       
       const wasApproved = registration?.status === 'approved'
       
-      // Update registration status
+      // Update registration status with rejection reason
       await supabase
         .from('registrations')
         .update({ 
           status: 'rejected',
+          rejection_reason: rejectionReason.trim() || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedRegistration.id)
@@ -1012,6 +1017,24 @@ export default function EventDashboardPage() {
                   <div className="col-span-2">
                     <p className="text-sm text-muted-foreground">Team ID</p>
                     <p>{selectedRegistration.teamId}</p>
+                  </div>
+                )}
+                {selectedRegistration.status === "rejected" && selectedRegistration.rejectionReason && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Rejection Reason</p>
+                    <p className="bg-red-50 p-2 rounded border border-red-200">{selectedRegistration.rejectionReason}</p>
+                  </div>
+                )}
+                {selectedRegistration.paymentStatus === "pending" && selectedRegistration.paymentScreenshot && (
+                  <div className="col-span-2 mt-4">
+                    <p className="text-sm text-muted-foreground mb-2">Payment Screenshot</p>
+                    <div className="w-full border rounded-lg overflow-hidden">
+                      <img 
+                        src={selectedRegistration.paymentScreenshot} 
+                        alt="Payment Screenshot" 
+                        className="w-full object-contain max-h-[300px]"
+                      />
+                    </div>
                   </div>
                 )}
               </div>

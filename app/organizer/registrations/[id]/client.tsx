@@ -562,6 +562,24 @@ export function RegistrationsClient({
                        <p>{selectedRegistration.teamId}</p>
                      </div>
                    )}
+                   {selectedRegistration.status === "rejected" && selectedRegistration.rejection_reason && (
+                     <div className="col-span-2">
+                       <p className="text-sm text-muted-foreground">Rejection Reason</p>
+                       <p className="bg-red-50 p-2 rounded border border-red-200">{selectedRegistration.rejection_reason}</p>
+                     </div>
+                   )}
+                   {selectedRegistration.paymentStatus === "pending" && selectedRegistration.paymentScreenshot && (
+                     <div className="col-span-2 mt-4">
+                       <p className="text-sm text-muted-foreground mb-2">Payment Screenshot</p>
+                       <div className="w-full border rounded-lg overflow-hidden">
+                         <img 
+                           src={selectedRegistration.paymentScreenshot} 
+                           alt="Payment Screenshot" 
+                           className="w-full object-contain max-h-[300px]"
+                         />
+                       </div>
+                     </div>
+                   )}
                     </div>
                 </div>
             )}

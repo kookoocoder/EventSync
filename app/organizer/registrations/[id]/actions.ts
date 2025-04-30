@@ -14,6 +14,8 @@ export interface RegistrationUI {
   registrationType: string;
   paymentStatus: string | null;
   teamId: string | null;
+  rejection_reason?: string | null;
+  paymentScreenshot?: string | null;
 }
 
 /**
@@ -61,6 +63,8 @@ export async function fetchEventRegistrations(eventId: string) {
             r.registration_type,
             r.status,
             r.payment_status,
+            r.rejection_reason,
+            r.payment_screenshot,
             r.created_at,
             p.name as participant_name,
             p.email as participant_email,
@@ -95,7 +99,9 @@ export async function fetchEventRegistrations(eventId: string) {
         status: row.status as RegistrationUI['status'],
         registrationType: row.registration_type,
         paymentStatus: row.payment_status,
-        teamId: row.team_id
+        teamId: row.team_id,
+        rejection_reason: row.rejection_reason,
+        paymentScreenshot: row.payment_screenshot
       }));
     } else {
       // Fall back to separate queries
@@ -143,7 +149,9 @@ export async function fetchEventRegistrations(eventId: string) {
           status: reg.status as RegistrationUI['status'],
             registrationType: reg.registration_type,
             paymentStatus: reg.payment_status,
-            teamId: reg.team_id
+            teamId: reg.team_id,
+            rejection_reason: reg.rejection_reason,
+            paymentScreenshot: reg.payment_screenshot
         };
         });
       }
@@ -398,7 +406,8 @@ export async function rejectRegistrationAction(
     .from("registrations")
     .update({ 
       status: "rejected",
-        updated_at: new Date().toISOString()
+      rejection_reason: resolvedReason,
+      updated_at: new Date().toISOString()
     })
       .eq("id", resolvedRegistrationId)
       .select();
@@ -419,9 +428,9 @@ export async function rejectRegistrationAction(
         { 
           query_text: `
             UPDATE registrations 
-            SET status = 'rejected', updated_at = NOW() 
+            SET status = 'rejected', rejection_reason = '${resolvedReason.replace(/'/g, "''")}', updated_at = NOW() 
             WHERE id = '${resolvedRegistrationId}' 
-            RETURNING id, status
+            RETURNING id, status, rejection_reason
           `
         }
       );
