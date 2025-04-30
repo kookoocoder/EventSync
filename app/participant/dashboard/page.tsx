@@ -20,9 +20,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ParticipantDashboardClient } from './client';
 import { format, isPast } from 'date-fns';
+import { redirect } from "next/navigation";
 
-// Define the expected shape for joined registration data
-// This should align with the SELECT query below
+// Simplified interface for fetched registration data
 interface FetchedRegistration {
   id: string;
   status: string; 
@@ -36,26 +36,25 @@ interface FetchedRegistration {
     start_date: string;
     end_date: string;
     location: string | null;
-  } | null; // Event might be null if deleted?
+  } | null;
   teams: {
     id: string;
     name: string;
-  } | null; // Team might be null
+  } | null;
 }
 
-// Interface matching the props expected by ParticipantDashboardClient
-// Note: This is redefined here but should ideally be shared from client.tsx
+// Interface for events passed to client component
 interface ParticipantEvent {
-  id: string;          // Event ID
-  title: string;        // Event Name
-  description: string;  // Event Description
-  image?: string;       // Event Banner Image
-  date: string;         // Formatted Date Range
-  location: string;    // Event Location
-  status: string;       // Registration Status (e.g., "Pending Approval", "Registered", "Payment Required")
+  id: string;
+  title: string;
+  description: string;
+  image?: string;
+  date: string;
+  location: string;
+  status: string;
   teamName?: string | null;
-  teamMembers?: number | string | null; // Simplified for now
-  result?: string | null; // Needs data source if required
+  teamMembers?: number | string | null;
+  result?: string | null;
 }
 
 export default async function ParticipantDashboardPage() {
@@ -64,21 +63,21 @@ export default async function ParticipantDashboardPage() {
     let participantData: any = null;
     let registeredEvents: ParticipantEvent[] = [];
     let completedEvents: ParticipantEvent[] = [];
-    let stats: any[] = []; // Initialize empty
+    let stats: any[] = [];
     let fetchError: string | null = null;
 
     try {
-        // --- Fetch Participant Profile ---
+        // Fetch participant profile
         const { data: profileData, error: profileError } = await supabase
             .from('participants')
             .select('name, bio, skills, avatar_url')
             .eq('id', user.id)
             .maybeSingle();
 
-        if (profileError) throw profileError; // Throw to be caught below
+        if (profileError) throw profileError;
         participantData = profileData;
 
-        // --- Fetch Registrations with Event and Team Details ---
+        // Fetch registrations with event and team details
         const { data: registrationData, error: registrationError } = await supabase
             .from('registrations')
             .select(`
@@ -90,14 +89,13 @@ export default async function ParticipantDashboardPage() {
                 teams ( id, name )
             `)
             .eq('participant_id', user.id)
-            .order('created_at', { ascending: false }); // Order by registration date
+            .order('created_at', { ascending: false });
 
-        if (registrationError) throw registrationError; // Throw to be caught below
+        if (registrationError) throw registrationError;
 
-        // --- Fetch Blockchain Points ---
+        // Fetch blockchain points
         let pointsBalance = 0;
         try {
-            // Fetch total points from blockchain balance
             const pointsResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/blockchain/balance?participantId=${user.id}`, {
                 headers: { 'Cache-Control': 'no-store' }
             });
@@ -108,24 +106,24 @@ export default async function ParticipantDashboardPage() {
             }
         } catch (pointsError) {
             console.error("Error fetching points balance:", pointsError);
-            // Continue with 0 points if fetch fails
         }
 
-        // --- Process Registrations ---
+        // Process registrations
         const now = new Date();
         registrationData.forEach((reg: FetchedRegistration) => {
-            if (!reg.events) return; // Skip if event data is missing
+            if (!reg.events) return;
 
             // Determine display status
-            let displayStatus = reg.status; // e.g., 'pending', 'approved', 'rejected'
+            let displayStatus = 'Pending';
             if (reg.status === 'pending' && reg.payment_status === 'pending') {
-                 displayStatus = 'Payment Verification Pending';
+                 displayStatus = 'Payment Pending';
             } else if (reg.status === 'pending') {
-                displayStatus = 'Approval Pending';
+                displayStatus = 'Pending Approval';
             } else if (reg.status === 'approved') {
                 displayStatus = 'Registered';
+            } else if (reg.status === 'rejected') {
+                displayStatus = 'Rejected';
             }
-            // Add more specific statuses if needed (e.g., Payment Rejected?)
 
             const eventEndDate = new Date(reg.events.end_date);
             const isCompleted = isPast(eventEndDate);
@@ -139,8 +137,8 @@ export default async function ParticipantDashboardPage() {
                 location: reg.events.location || 'Online',
                 status: displayStatus,
                 teamName: reg.teams?.name,
-                teamMembers: 'N/A', // Placeholder - requires separate count query or view
-                result: null, // Placeholder - requires data source for results/awards
+                teamMembers: 'N/A',
+                result: null,
             };
 
             if (isCompleted) {
@@ -150,34 +148,28 @@ export default async function ParticipantDashboardPage() {
             }
         });
 
-        // --- Calculate Stats ---
+        // Calculate stats
         const teamCount = registrationData.filter(reg => reg.teams !== null).length;
         const approvedCount = registrationData.filter(reg => reg.status === 'approved').length;
         stats = [
-            { title: "Total Events Registered", value: registrationData.length.toString(), iconName: "Calendar" },
-            { title: "Upcoming/Ongoing Events", value: registeredEvents.length.toString(), iconName: "Clock" },
-            { title: "Blockchain Points", value: pointsBalance.toString(), iconName: "Coins" },
-            { title: "Team Participations", value: teamCount.toString(), iconName: "Users" },
+            { title: "Events", value: registrationData.length.toString(), iconName: "Calendar" },
+            { title: "Upcoming", value: registeredEvents.length.toString(), iconName: "Clock" },
+            { title: "Points", value: pointsBalance.toString(), iconName: "Coins" },
+            { title: "Teams", value: teamCount.toString(), iconName: "Users" },
         ];
 
     } catch (err: any) {
         console.error("Error fetching dashboard data:", err);
-        // Determine which error occurred if needed, otherwise use generic message
-        if (!participantData) {
-             fetchError = `Failed to load profile: ${err.message}`;
-        } else {
-            fetchError = `Failed to load event registrations: ${err.message}`;
-        }
+        fetchError = `Failed to load data: ${err.message}`;
     }
 
-    // Pass server-fetched data to the client component
     return (
         <ParticipantDashboardClient
             user={user}
             participantData={participantData}
             fetchError={fetchError}
-            registeredEvents={registeredEvents} // Use correct prop name
-            completedEvents={completedEvents} // Use correct prop name
+            registeredEvents={registeredEvents}
+            completedEvents={completedEvents}
             stats={stats}
         />
     );
