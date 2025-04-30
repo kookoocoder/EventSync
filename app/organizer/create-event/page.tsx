@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent, ChangeEvent, useEffect } from "react"
+import { useState, type FormEvent, ChangeEvent, useEffect, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Upload, QrCode, ArrowRight, ArrowLeft, Save, Loader2, AlertCircle } from "lucide-react"
@@ -58,7 +58,6 @@ interface FormDataState {
     resultsDate: string; // Keep as string from input
     prizes: string;
     rules: string;
-    judgingCriteria: string;
 }
 
 
@@ -91,6 +90,18 @@ export default function CreateEventPage() {
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false); // Manual loading state
+  const [isPending, startTransition] = useTransition();
+
+  // Monitor state changes for successful submissions
+  useEffect(() => {
+    console.log("🔷 State changed:", { message: state?.message, error: state?.error });
+    if (state?.message) {
+      console.log("🔷 Success message detected, navigating to dashboard");
+      router.push('/organizer/dashboard');
+    } else if (state?.error) {
+      console.log("🔷 Error detected:", state.error);
+    }
+  }, [state, router]);
 
   // Client-side state for ALL form fields
   const [formData, setFormData] = useState<FormDataState>({
@@ -114,7 +125,6 @@ export default function CreateEventPage() {
     resultsDate: '',
     prizes: '',
     rules: '',
-    judgingCriteria: '',
   });
 
    // Update state on input change
@@ -200,26 +210,43 @@ export default function CreateEventPage() {
   // --- Manual Submit Handler ---
    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
        event.preventDefault();
+       console.log("🔶 Submit handler started");
        setIsSubmitting(true);
-       state.error = null; // Clear previous errors before submitting
-       state.fieldErrors = {};
 
        const manualFormData = new FormData();
        Object.entries(formData).forEach(([key, value]) => {
            if (key === 'hasRegistrationFee') {
                manualFormData.append(key, value ? 'on' : '');
            } else if (value instanceof File) {
-               if (value) manualFormData.append(key, value);
-           } else if (value !== null && value !== undefined) { // Append even empty strings for validation
-                manualFormData.append(key, String(value));
+               if (value) {
+                   console.log(`🔶 Appending file: ${key}, size: ${value.size}, type: ${value.type}`);
+                   manualFormData.append(key, value);
+               }
+           } else if (value !== null && value !== undefined) {
+               console.log(`🔶 Appending: ${key} = ${typeof value === 'string' && value.length > 50 ? value.substring(0, 50) + '...' : value}`);
+               manualFormData.append(key, String(value));
            }
        });
 
-        console.log("Manual FormData to be sent:", Object.fromEntries(manualFormData.entries()));
-
-       await formAction(manualFormData); // Execute the server action
-
-       setIsSubmitting(false); // Reset loading state
+       console.log("🔶 Form data prepared, keys:", [...manualFormData.keys()]);
+       
+       try {
+           console.log("🔶 Starting form submission transition");
+           startTransition(async () => {
+               try {
+                   console.log("🔶 Calling formAction");
+                   await formAction(manualFormData);
+                   console.log("🔶 Form action completed");
+                   setIsSubmitting(false);
+               } catch (actionError) {
+                   console.error("🔶 Error in formAction:", actionError);
+                   setIsSubmitting(false);
+               }
+           });
+       } catch (error) {
+           console.error("🔶 Error submitting form:", error);
+           setIsSubmitting(false);
+       }
    }; // <<< Semicolon here is fine
 
 
@@ -384,8 +411,8 @@ export default function CreateEventPage() {
                                    </div>
                                </div>
                                {/* Cross-field validation error */}
-                               {state?.fieldErrors?._errors?.find(err => err.includes("Maximum team size")) && (
-                                   <p className="text-xs text-destructive">{state.fieldErrors._errors.find(err => err.includes("Maximum team size"))}</p>
+                               {state?.fieldErrors?._errors?.find((err: string) => err.includes("Maximum team size")) && (
+                                   <p className="text-xs text-destructive">{state.fieldErrors._errors.find((err: string) => err.includes("Maximum team size"))}</p>
                                )}
                            </div>
                       </CardContent>
@@ -410,8 +437,8 @@ export default function CreateEventPage() {
                           <Input id="registrationEnd" name="registrationEnd" type="date" required value={formData.registrationEnd} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.registrationEnd}/>
                           {state?.fieldErrors?.registrationEnd && <p className="text-xs text-destructive">{state.fieldErrors.registrationEnd.join(', ')}</p>}
                            {/* Cross-field validation error */}
-                           {state?.fieldErrors?._errors?.find(err => err.includes("Registration deadline")) && (
-                               <p className="text-xs text-destructive">{state.fieldErrors._errors.find(err => err.includes("Registration deadline"))}</p>
+                           {state?.fieldErrors?._errors?.find((err: string) => err.includes("Registration deadline")) && (
+                               <p className="text-xs text-destructive">{state.fieldErrors._errors.find((err: string) => err.includes("Registration deadline"))}</p>
                            )}
                         </div>
                          {/* Event Start */}
@@ -426,8 +453,8 @@ export default function CreateEventPage() {
                           <Input id="eventEnd" name="eventEnd" type="datetime-local" required value={formData.eventEnd} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.eventEnd}/>
                           {state?.fieldErrors?.eventEnd && <p className="text-xs text-destructive">{state.fieldErrors.eventEnd.join(', ')}</p>}
                           {/* Cross-field validation error */}
-                          {state?.fieldErrors?._errors?.find(err => err.includes("Event end date/time")) && (
-                               <p className="text-xs text-destructive">{state.fieldErrors._errors.find(err => err.includes("Event end date/time"))}</p>
+                          {state?.fieldErrors?._errors?.find((err: string) => err.includes("Event end date/time")) && (
+                               <p className="text-xs text-destructive">{state.fieldErrors._errors.find((err: string) => err.includes("Event end date/time"))}</p>
                            )}
                         </div>
                         {/* Results Date */}
@@ -436,8 +463,8 @@ export default function CreateEventPage() {
                           <Input id="resultsDate" name="resultsDate" type="date" required value={formData.resultsDate} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.resultsDate}/>
                           {state?.fieldErrors?.resultsDate && <p className="text-xs text-destructive">{state.fieldErrors.resultsDate.join(', ')}</p>}
                            {/* Cross-field validation error */}
-                          {state?.fieldErrors?._errors?.find(err => err.includes("Results announcement date")) && (
-                               <p className="text-xs text-destructive">{state.fieldErrors._errors.find(err => err.includes("Results announcement date"))}</p>
+                          {state?.fieldErrors?._errors?.find((err: string) => err.includes("Results announcement date")) && (
+                               <p className="text-xs text-destructive">{state.fieldErrors._errors.find((err: string) => err.includes("Results announcement date"))}</p>
                            )}
                         </div>
                     </CardContent>
@@ -466,8 +493,8 @@ export default function CreateEventPage() {
                     <div className="flex justify-between p-6 border-t">
                       <Button type="button" variant="outline" onClick={() => handlePrevTab("schedule")}> <ArrowLeft className="mr-2 h-4 w-4" /> Back </Button>
                        {/* Submit Button */}
-                       <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating... </> ) : ( <> Create Hackathon <Save className="ml-2 h-4 w-4" /> </> )}
+                       <Button type="submit" disabled={isSubmitting || isPending}>
+                            {(isSubmitting || isPending) ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating... </> ) : ( <> Create Hackathon <Save className="ml-2 h-4 w-4" /> </> )}
                        </Button>
                     </div>
                   </TabsContent>

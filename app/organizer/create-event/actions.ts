@@ -7,9 +7,12 @@
     import { randomUUID } from 'crypto';
 
     // Define the shape of the state returned by the action
-    interface CreateEventState {
+    export interface CreateEventState {
         error?: string | null;
-        fieldErrors?: Record<string, string[] | undefined>;
+        fieldErrors?: {
+            _errors?: string[];
+            [key: string]: string[] | undefined;
+        };
         message?: string | null;
     }
 
@@ -165,62 +168,61 @@
         previousState: CreateEventState,
         formData: FormData // Action receives FormData directly
     ): Promise<CreateEventState> {
+        console.log("🔥 Create Event Action Started");
 
         // --- Authentication ---
         const supabaseActionClient = createServerActionClient();
         const supabaseService = createServiceRoleClient();
         let user;
         try {
+            console.log("🔥 Authenticating user");
             const { data: { user: authUser }, error: authError } = await supabaseActionClient.auth.getUser();
             if (authError || !authUser) throw new Error(authError?.message || 'Authentication required.');
             user = authUser;
+            console.log("🔥 User authenticated:", user.id);
+            
             const { data: organizerData, error: organizerError } = await supabaseService.from('organizers').select('id').eq('id', user.id).maybeSingle();
             if (organizerError) throw new Error('Failed to verify organizer status.');
             if (!organizerData) throw new Error('You are not authorized to create events.');
-            // console.log(`[Create Event Action] User ${user.id} verified as organizer.`); // Commented out
+            console.log("🔥 User verified as organizer");
         } catch (e: any) {
-             console.error("[Create Event Action] Error during auth/authz:", e.message); // Keep error log
-             if (e.message?.includes('cookies() should be awaited')) return { error: 'Server error: Could not access session data.' };
-             return { error: e.message || 'An authentication error occurred.' };
+            console.error("🔥 Error during auth/authz:", e.message);
+            if (e.message?.includes('cookies() should be awaited')) return { error: 'Server error: Could not access session data.' };
+            return { error: e.message || 'An authentication error occurred.' };
         }
 
         // --- Data Extraction & Validation ---
         // IMPORTANT: Read directly from formData passed to the action
         const rawData: { [key: string]: any } = {};
-         formData.forEach((value, key) => {
-             // Don't stringify files
-             rawData[key] = value instanceof File ? value : String(value);
-         });
-        // console.log("[Create Event Action] Raw form data received:", rawData); // Commented out
+        formData.forEach((value, key) => {
+            // Don't stringify files
+            rawData[key] = value instanceof File ? value : String(value);
+        });
+        console.log("🔥 Raw form data keys:", Object.keys(rawData));
 
         const validatedFields = eventSchema.safeParse(rawData);
 
         if (!validatedFields.success) {
-            console.error("[Create Event Action] Validation failed:", validatedFields.error.flatten()); // Keep error log
+            console.error("🔥 Validation failed:", validatedFields.error.flatten());
             return {
                 error: 'Validation failed. Please check the marked fields.',
                 fieldErrors: validatedFields.error.flatten().fieldErrors,
             };
         }
-        // console.log("[Create Event Action] Validation successful."); // Commented out
+        console.log("🔥 Validation successful");
         const data = validatedFields.data;
 
         // --- File Uploads & DB Insert ---
         let bannerImageUrl: string | null = null;
-        let qrCodeUrl: string | null = null;
 
         try {
-            // console.log("[Create Event Action] Uploading banner image..."); // Commented out
+            console.log("🔥 Uploading banner image...");
             // Use the File object directly from validated data
             bannerImageUrl = await uploadFile(supabaseService, data.banner, 'eventbanners', user.id);
+            console.log("🔥 Banner uploaded:", bannerImageUrl ? "SUCCESS" : "FAILED");
 
-            if (data.hasRegistrationFee && data.qrCode && data.qrCode.size > 0) {
-                // console.log("[Create Event Action] Uploading QR code image..."); // Commented out
-                qrCodeUrl = await uploadFile(supabaseService, data.qrCode, 'payment_qrcodes', user.id);
-                if (!qrCodeUrl && data.qrCode.size > 0) {
-                     console.warn("[Create Event Action] QR Code upload failed but proceeding."); // Keep warning
-                }
-            }
+            // QR code is generated dynamically on the client side when needed
+            // No need to store it in the database
 
             // Prepare data for DB
             const supabaseData = {
@@ -237,36 +239,43 @@
                 results_announcement_date: new Date(data.resultsDate).toISOString(),
                 registration_fee: data.hasRegistrationFee ? data.feeAmount : 0,
                 upi_id: data.hasRegistrationFee ? data.upiId : null,
-                qr_code_url: qrCodeUrl,
                 requirements: data.requirements,
                 min_team_size: data.minTeamSize,
                 max_team_size: data.maxTeamSize,
                 rules: data.rules,
                 prize_money: data.prizes,
-                is_published: true, // Default to false on creation
-                max_participants: data.maxParticipants, // Add maxParticipants
+                is_published: true, 
+                max_participants: data.maxParticipants,
             };
 
-            // console.log("[Create Event Action] Inserting data into Supabase:", supabaseData); // Commented out
-            const { error: insertError } = await supabaseActionClient
+            console.log("🔥 Inserting data into Supabase:", JSON.stringify(supabaseData, null, 2));
+            const { data: insertData, error: insertError } = await supabaseActionClient
                 .from('events')
-                .insert(supabaseData);
+                .insert(supabaseData)
+                .select('id')
+                .single();
 
-            if (insertError) { throw insertError; }
+            if (insertError) { 
+                console.error("🔥 Insert error:", insertError);
+                throw insertError; 
+            }
 
-            // console.log("[Create Event Action] Event created successfully."); // Commented out
+            console.log("🔥 Event created successfully with ID:", insertData?.id);
+
+            // Return success message 
+            return { 
+                message: 'Event created successfully!',
+                error: null,
+                fieldErrors: {}
+            };
 
         } catch (error: any) {
-            console.error("[Create Event Action] Error during upload or DB insert:", error); // Keep error log
-            // console.log("[Create Event Action] Attempting cleanup..."); // Commented out
-             // --- Cleanup Logic ---
-             await cleanupFile(supabaseService, bannerImageUrl, 'eventbanners');
-             await cleanupFile(supabaseService, qrCodeUrl, 'payment_qrcodes');
-             // --- End Cleanup ---
+            console.error("🔥 Error during upload or DB insert:", error);
+            // --- Cleanup Logic ---
+            await cleanupFile(supabaseService, bannerImageUrl, 'eventbanners');
+            // No QR code cleanup needed
+            // --- End Cleanup ---
             if (error.code) { return { error: `Failed to create event: ${error.message} (Code: ${error.code})` }; }
             return { error: error.message || 'An unexpected error occurred.' };
         }
-
-        // --- Redirect on Success ---
-        redirect('/organizer/dashboard'); // Redirect after successful creation
     }
