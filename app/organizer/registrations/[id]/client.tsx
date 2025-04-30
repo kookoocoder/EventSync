@@ -4,9 +4,11 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { ArrowLeft, Download, Eye, Filter, Search, Check, X, RefreshCw } from "lucide-react"
 import { format } from 'date-fns' // Use date-fns for formatting
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -68,7 +70,12 @@ export function RegistrationsClient({
   initialRegistrations,
   fetchError,
 }: RegistrationsClientProps) {
-  const [registrations, setRegistrations] = useState<RegistrationUI[]>([])
+  const router = useRouter();
+  const { toast } = useToast(); // Get the toast function
+  
+  const [registrations, setRegistrations] = useState<(RegistrationUI & { isLoading?: boolean })[]>(
+    initialRegistrations || []
+  );
   const [isLoading, setIsLoading] = useState(true) // Track initial loading
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOption, setSortOption] = useState("date_desc") // Default sort
@@ -163,11 +170,8 @@ export function RegistrationsClient({
 
   // --- Handlers ---
   const handleApprove = async (registrationId: string) => {
-    if (!event?.id) return;
-    
-    // Find the registration being approved for local state updates
-    const registrationToApprove = registrations.find(reg => reg.id === registrationId);
-    if (!registrationToApprove) return;
+    const registrationToApprove = registrations.find(r => r.id === registrationId);
+    if (!registrationToApprove || !event?.id) return;
     
     // Set local approval state
     setRegistrations(prev => 
@@ -198,27 +202,43 @@ export function RegistrationsClient({
         console.log("Registration approved successfully");
         
         // Show confirmation to user
-        alert("Registration approved successfully!");
-      } else if (result.message) {
-        console.info(result.message);
-        // Make sure local state is updated even if already approved
+        toast({
+          title: "Registration Approved",
+          description: "The participant has been successfully approved.",
+          variant: "default"
+        });
+      } else {
+        console.error("Failed to approve registration:", result.error);
+        
+        // Show error message
+        toast({
+          title: "Approval Failed",
+          description: result.error || "Failed to approve registration. Please try again.",
+          variant: "destructive"
+        });
+        
+        // Reset the registration status in the UI
         setRegistrations(prev => 
           prev.map(reg => 
             reg.id === registrationId 
-              ? { ...reg, status: "approved", isLoading: false } 
+              ? { ...registrationToApprove, isLoading: false } 
               : reg
-        )
-      );
-      } else {
-        throw new Error("Failed to approve registration");
+          )
+        );
       }
       
       // Refresh the data after UI is updated
       setTimeout(() => refreshRegistrations(), 1000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to approve registration:", error);
-      alert("Failed to approve registration. Please try again.");
+      
+      // Show error message
+      toast({
+        title: "Approval Failed",
+        description: error.message || "Failed to approve registration. Please try again.",
+        variant: "destructive"
+      });
       
       // Reset the local state for this registration
       setRegistrations(prev => 

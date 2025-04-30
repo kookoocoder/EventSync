@@ -192,49 +192,54 @@ export async function approveRegistrationAction(eventId: string, registrationId:
   console.log("registrationId:", resolvedRegistrationId);
 
   try {
-  // 1. Get the current authenticated user
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
+    // 1. Get the current authenticated user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       console.error("Authentication error:", userError);
-    throw new Error("Authentication required. Please log in.");
-  }
+      throw new Error("Authentication required. Please log in.");
+    }
     
     console.log("User ID:", user.id);
 
-  // 2. Check if user is the organizer of this event (authorization)
-  const { data: event, error: eventError } = await supabase
-    .from("events")
+    // 2. Check if user is the organizer of this event (authorization)
+    const { data: event, error: eventError } = await supabase
+      .from("events")
       .select("organizer_id, current_participants, max_participants")
       .eq("id", resolvedEventId)
-    .single();
+      .single();
 
     if (eventError) {
       console.error("Event fetch error:", eventError);
-      throw new Error("Event not found.");
+      throw new Error(`Event not found: ${eventError.message}`);
     }
     if (!event) {
       console.error("Event not found with ID:", resolvedEventId);
-    throw new Error("Event not found.");
-  }
+      throw new Error("Event not found.");
+    }
 
     console.log("Event data:", event);
 
-  if (event.organizer_id !== user.id) {
+    if (event.organizer_id !== user.id) {
       console.error("Authorization error: User is not the organizer");
       console.log("Event organizer_id:", event.organizer_id);
       console.log("User id:", user.id);
-    throw new Error("Unauthorized. Only the event organizer can approve registrations.");
-  }
+      throw new Error("Unauthorized. Only the event organizer can approve registrations.");
+    }
 
     // 3. Get the current registration status
     const { data: registration, error: regError } = await supabase
-    .from("registrations")
-      .select("status")
+      .from("registrations")
+      .select("status, participant_id")
       .eq("id", resolvedRegistrationId)
       .single();
 
     if (regError) {
       console.error("Registration fetch error:", regError);
+      throw new Error(`Registration not found: ${regError.message}`);
+    }
+    
+    if (!registration) {
+      console.error("Registration not found with ID:", resolvedRegistrationId);
       throw new Error("Registration not found.");
     }
 
@@ -266,10 +271,10 @@ export async function approveRegistrationAction(eventId: string, registrationId:
       .eq("id", resolvedRegistrationId)
       .select();
 
-  if (updateError) {
-    console.error("Error approving registration:", updateError);
-    throw new Error("Failed to approve registration.");
-  }
+    if (updateError) {
+      console.error("Error approving registration:", updateError);
+      throw new Error(`Failed to approve registration: ${updateError.message}`);
+    }
 
     console.log("Update result:", updateResult);
 
@@ -291,28 +296,6 @@ export async function approveRegistrationAction(eventId: string, registrationId:
 
     console.log("Increment result:", incrementResult);
 
-    // Try a direct SQL update as a fallback if needed
-    if (!updateResult || updateResult.length === 0) {
-      console.log("Fallback: Using direct SQL to update registration");
-      
-      const { data: directSqlResult, error: directSqlError } = await supabase.rpc(
-        'direct_query',
-        { 
-          query_text: `
-            UPDATE registrations 
-            SET status = 'approved', updated_at = NOW() 
-            WHERE id = '${resolvedRegistrationId}' 
-            RETURNING id, status
-          `
-        }
-      );
-      
-      console.log("Direct SQL update result:", directSqlResult);
-      if (directSqlError) {
-        console.error("Direct SQL update error:", directSqlError);
-      }
-    }
-
     // 6. Revalidate the page to show updated data
     revalidatePath(`/organizer/registrations/${resolvedEventId}`);
 
@@ -320,7 +303,11 @@ export async function approveRegistrationAction(eventId: string, registrationId:
     return { success: true, message: "Registration approved successfully." };
   } catch (error: any) {
     console.error("Error in approveRegistrationAction:", error);
-    throw error;
+    // Return an error object instead of throwing to allow client-side handling
+    return { 
+      success: false, 
+      error: error.message || "Failed to approve registration." 
+    };
   }
 }
 
