@@ -1,13 +1,11 @@
-// EventSync/app/organizer/create-event/page.tsx
 "use client"
 
-// --- Imports ---
 import { useState, type FormEvent, ChangeEvent, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Upload, QrCode, ArrowRight, ArrowLeft, Save, Loader2, AlertCircle } from "lucide-react"
 import { useActionState } from 'react'
-// Removed useFormStatus as we manage loading state manually
+import QRCode from 'qrcode'
 
 import { createEvent } from "./actions" // Import the server action
 import type { CreateEventState } from "./actions" // Import the action's state type
@@ -64,6 +62,27 @@ interface FormDataState {
 }
 
 
+// --- QR Code Generation Function ---
+const generateQRCode = async (amount: string, upiId: string): Promise<string> => {
+  try {
+    // Create UPI payment URL
+    const upiUrl = `upi://pay?pa=${upiId}&am=${amount}&cu=INR`;
+    // Generate QR code as data URL
+    const qrDataUrl = await QRCode.toDataURL(upiUrl, {
+      width: 400,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    });
+    return qrDataUrl;
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    throw error;
+  }
+};
+
 // --- Main Component ---
 export default function CreateEventPage() {
   const router = useRouter();
@@ -109,9 +128,31 @@ export default function CreateEventPage() {
              if (name === 'banner') handleFilePreview(e as ChangeEvent<HTMLInputElement>, setBannerPreview);
              if (name === 'qrCode') handleFilePreview(e as ChangeEvent<HTMLInputElement>, setQrPreview);
        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setFormData(prev => {
+                const newData = { ...prev, [name]: value };
+                
+                // Auto-generate QR code when both amount and UPI ID are available
+                if ((name === 'feeAmount' || name === 'upiId') && newData.hasRegistrationFee) {
+                    if (newData.feeAmount && newData.upiId) {
+                        generateQRCode(newData.feeAmount, newData.upiId)
+                            .then(qrDataUrl => {
+                                setQrPreview(qrDataUrl);
+                                // Convert data URL to File object
+                                fetch(qrDataUrl)
+                                    .then(res => res.blob())
+                                    .then(blob => {
+                                        const file = new File([blob], 'qr-code.png', { type: 'image/png' });
+                                        setFormData(current => ({ ...current, qrCode: file }));
+                                    })
+                                    .catch(console.error);
+                            })
+                            .catch(console.error);
+                    }
+                }
+                return newData;
+            });
        }
-   }; // <<< Semicolon here is fine
+   };
 
     // Handler for RadioGroup
     const handleRadioChange = (name: keyof FormDataState, value: string) => {
@@ -290,21 +331,24 @@ export default function CreateEventPage() {
                                 <Input id="upiId" name="upiId" placeholder="yourname@upi" required={formData.hasRegistrationFee} value={formData.upiId} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.upiId}/>
                                 {state?.fieldErrors?.upiId && <p className="text-xs text-destructive">{state.fieldErrors.upiId.join(', ')}</p>}
                              </div>
+                             {/* Auto-generated QR Code display */}
                              <div className="space-y-2">
-                                <Label htmlFor="qr-code-upload">QR Code (Optional)</Label>
+                                <Label>Payment QR Code</Label>
                                 <div className="flex items-center justify-center w-full">
-                                  <label htmlFor="qr-code-upload" className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 ${state?.fieldErrors?.qrCode ? 'border-destructive' : 'border-input'}`}>
-                                     {qrPreview ? ( <img src={qrPreview} alt="QR Preview" className="h-full w-auto object-contain p-2"/> ) : ( /* Placeholder */
+                                  <div className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg bg-muted/30 ${state?.fieldErrors?.qrCode ? 'border-destructive' : 'border-input'}`}>
+                                     {qrPreview ? (
+                                         <img src={qrPreview} alt="QR Code" className="h-full w-auto object-contain p-2"/>
+                                     ) : (
                                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                               <QrCode className="w-8 h-8 mb-3 text-muted-foreground" />
-                                              <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                              <p className="text-xs text-muted-foreground">PNG, JPG, SVG (Max {MAX_FILE_SIZE_MB}MB)</p>
+                                              <p className="text-sm text-muted-foreground text-center">
+                                                QR code will be automatically generated<br />when you enter amount and UPI ID
+                                              </p>
                                           </div>
                                     )}
-                                  </label>
+                                  </div>
                                 </div>
-                                 <Input id="qr-code-upload" name="qrCode" type="file" className="sr-only" accept={ACCEPTED_QR_TYPES.join(',')} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.qrCode} aria-describedby={state?.fieldErrors?.qrCode ? "qr-error" : undefined} />
-                                 {state?.fieldErrors?.qrCode && <p id="qr-error" className="text-xs text-destructive">{state.fieldErrors.qrCode.join(', ')}</p>}
+                                {state?.fieldErrors?.qrCode && <p id="qr-error" className="text-xs text-destructive">{state.fieldErrors.qrCode.join(', ')}</p>}
                              </div>
                           </div>
                         )}

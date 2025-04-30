@@ -335,7 +335,7 @@ export default function EventDashboardPage() {
         ...eventForm
       } : null)
       
-      alert("Event updated successfully!")
+    alert("Event updated successfully!")
     } catch (err: any) {
       console.error("Error saving event changes:", err)
       // Revert form changes on error
@@ -374,7 +374,7 @@ export default function EventDashboardPage() {
         .single()
       
       if (eventError) throw eventError
-
+      
       // Use a SQL RPC call to get detailed registration data with proper joins
       const { data: regData, error: regSqlError } = await supabase.rpc(
         'direct_query',
