@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { RegistrationButton } from "@/components/RegistrationButton";
 
 // Updated interface to match Supabase schema
 export interface DBEvent {
@@ -195,11 +196,13 @@ export function EventCard({ event, isLive = false, isPast = false, isHackathon =
                </Button>
            </Link>
         ) : (
-          <Link href={`/${eventType}/${event.id}/register`} className="w-full">
-            <Button className="w-full">
-              {eventIsLive ? "Join Now" : "Register"} <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
+          <RegistrationButton 
+            eventId={event.id}
+            eventType={eventType as 'events' | 'hackathons'}
+            isLive={!!eventIsLive}
+            isPast={!!isPast}
+            showStatus={false}
+          />
         )}
       </CardFooter>
     </Card>

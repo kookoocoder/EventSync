@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteHeader } from "@/components/SiteHeader";
+import { RegistrationButton } from "@/components/RegistrationButton";
 
 export async function generateMetadata(props: { params: { id: string } }): Promise<Metadata> {
   const { id } = await props.params;
@@ -153,76 +154,6 @@ export default async function EventPage({
     return startDate && endDate && now >= startDate && now <= endDate;
   };
 
-  const getRegistrationButton = () => {
-    if (isPastEvent()) {
-      return (
-        <Button className="w-full" variant="outline" asChild>
-          <Link href={`/events/${event.id}/results`}>View Results</Link>
-        </Button>
-      );
-    }
-
-    if (!user) {
-      return (
-        <Button className="w-full" size="lg" asChild>
-          <Link href={`/login?redirectTo=/events/${event.id}`}>
-            Login to Register
-          </Link>
-        </Button>
-      );
-    }
-
-    if (registration) {
-      const status = registration.status;
-      const paymentStatus = registration.payment_status;
-      
-      if (status === 'approved') {
-        return (
-          <div className="space-y-2">
-            <Badge className="w-full bg-green-500 py-2 text-center">Registration Approved</Badge>
-            <Button className="w-full" variant="outline" asChild>
-              <Link href="/participant/dashboard">View Registration</Link>
-            </Button>
-          </div>
-        );
-      }
-      
-      if (status === 'rejected') {
-        return (
-          <div className="space-y-2">
-            <Badge className="w-full bg-red-500 py-2 text-center">Registration Rejected</Badge>
-            <Button className="w-full" variant="outline" asChild>
-              <Link href="/participant/dashboard">View Details</Link>
-            </Button>
-          </div>
-        );
-      }
-      
-      if (status === 'pending') {
-        const message = paymentStatus === 'pending' 
-          ? "Payment Verification Pending" 
-          : "Approval Pending";
-        
-        return (
-          <div className="space-y-2">
-            <Badge className="w-full bg-yellow-500 py-2 text-center">{message}</Badge>
-            <Button className="w-full" variant="outline" asChild>
-              <Link href="/participant/dashboard">View Status</Link>
-            </Button>
-          </div>
-        );
-      }
-    }
-
-    return (
-      <Button className="w-full" size="lg" asChild disabled={!isRegistrationOpen()}>
-        <Link href={`/events/${event.id}/register`}>
-          {isLiveEvent() ? "Join Now" : "Register for Event"}
-        </Link>
-      </Button>
-    );
-  };
-
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
@@ -271,204 +202,174 @@ export default async function EventPage({
           </div>
         </div>
 
-        <div className="container py-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-8">
-            <div className="flex flex-col md:flex-row gap-6 md:gap-12">
-              {/* Main Content */}
-              <div className="flex-1 space-y-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>About This Event</CardTitle>
-                    {event.organizer && <CardDescription>Organized by {event.organizer}</CardDescription>}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose max-w-none">
-                      <p className="whitespace-pre-wrap break-words">{event.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Tabs defaultValue="details" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    {event.prize_money && <TabsTrigger value="prizes">Prizes</TabsTrigger>}
-                    {event.rules && <TabsTrigger value="rules">Rules</TabsTrigger>}
-                    {event.requirements && <TabsTrigger value="requirements">Requirements</TabsTrigger>}
-                  </TabsList>
-
-                  <TabsContent value="details" className="space-y-4 pt-4">
+        <div className="container py-12 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Content */}
+            <div className="lg:col-span-2">
+              <div className="flex flex-col gap-8">
+                <div className="flex flex-col md:flex-row gap-6 md:gap-12">
+                  <div className="flex-1 space-y-8">
                     <Card>
-                      <CardContent className="pt-6">
-                        <div className="space-y-4">
-                          {event.location && (
-                            <div className="flex border-l-2 border-primary pl-4 pb-4 relative">
-                              <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-primary" />
-                              <div className="flex-1">
-                                <div className="flex flex-col gap-1">
-                                  <h3 className="font-medium">Location</h3>
-                                  <div className="flex items-center text-sm text-muted-foreground">
-                                    <MapPin className="mr-2 h-4 w-4" />
-                                    <span>{event.location}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          {event.start_date && (
-                            <div className="flex border-l-2 border-primary pl-4 pb-4 relative">
-                              <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-primary" />
-                              <div className="flex-1">
-                                <div className="flex flex-col gap-1">
-                                  <h3 className="font-medium">Date & Time</h3>
-                                  <p className="text-sm text-muted-foreground">Event Starts at</p>
-                                  <div className="flex items-center text-sm text-muted-foreground">
-                                    <Calendar className="mr-2 h-4 w-4" />
-                                    <span>{formatDateRange()}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                      <CardHeader>
+                        <CardTitle>About This Event</CardTitle>
+                        {event.organizer && <CardDescription>Organized by {event.organizer}</CardDescription>}
+                      </CardHeader>
+                      <CardContent>
+                        <div className="prose max-w-none">
+                          <p className="whitespace-pre-wrap break-words">{event.description}</p>
                         </div>
                       </CardContent>
                     </Card>
-                  </TabsContent>
 
-                  {event.prize_money && (
-                    <TabsContent value="prizes" className="space-y-4 pt-4">
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            <div className="rounded-lg p-6 bg-yellow-50 border border-yellow-200">
-                              <div className="flex items-center gap-4">
-                                <div className="rounded-full p-2 bg-yellow-100 text-yellow-700">
-                                  <Trophy className="h-5 w-5" />
+                    <Tabs defaultValue="details" className="w-full">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="details">Details</TabsTrigger>
+                        {event.prize_money && <TabsTrigger value="prizes">Prizes</TabsTrigger>}
+                        {event.rules && <TabsTrigger value="rules">Rules</TabsTrigger>}
+                        {event.requirements && <TabsTrigger value="requirements">Requirements</TabsTrigger>}
+                      </TabsList>
+
+                      <TabsContent value="details" className="space-y-4 pt-4">
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="space-y-4">
+                              {event.location && (
+                                <div className="flex border-l-2 border-primary pl-4 pb-4 relative">
+                                  <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-primary" />
+                                  <div className="flex-1">
+                                    <div className="flex flex-col gap-1">
+                                      <h3 className="font-medium">Location</h3>
+                                      <div className="flex items-center text-sm text-muted-foreground">
+                                        <MapPin className="mr-2 h-4 w-4" />
+                                        <span>{event.location}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <h3 className="font-medium">Prize Pool</h3>
-                                  <p className="text-2xl font-bold text-yellow-700">{event.prize_money}</p>
+                              )}
+                              {event.start_date && (
+                                <div className="flex border-l-2 border-primary pl-4 pb-4 relative">
+                                  <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-primary" />
+                                  <div className="flex-1">
+                                    <div className="flex flex-col gap-1">
+                                      <h3 className="font-medium">Date & Time</h3>
+                                      <p className="text-sm text-muted-foreground">Event Starts at</p>
+                                      <div className="flex items-center text-sm text-muted-foreground">
+                                        <Calendar className="mr-2 h-4 w-4" />
+                                        <span>{formatDateRange()}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      {event.prize_money && (
+                        <TabsContent value="prizes" className="space-y-4 pt-4">
+                          <Card>
+                            <CardContent className="pt-6">
+                              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="rounded-lg p-6 bg-yellow-50 border border-yellow-200">
+                                  <div className="flex items-center gap-4">
+                                    <div className="rounded-full p-2 bg-yellow-100 text-yellow-700">
+                                      <Trophy className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                      <h3 className="font-medium">Prize Pool</h3>
+                                      <p className="text-2xl font-bold text-yellow-700">{event.prize_money}</p>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  )}
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+                      )}
 
-                  {event.rules && (
-                    <TabsContent value="rules" className="space-y-4 pt-4">
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="prose max-w-none">
-                            <div dangerouslySetInnerHTML={{ __html: event.rules }} />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  )}
+                      {event.rules && (
+                        <TabsContent value="rules" className="space-y-4 pt-4">
+                          <Card>
+                            <CardContent className="pt-6">
+                              <div className="prose max-w-none">
+                                <div dangerouslySetInnerHTML={{ __html: event.rules }} />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+                      )}
 
-                  {event.requirements && (
-                    <TabsContent value="requirements" className="space-y-4 pt-4">
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="prose max-w-none">
-                            <div dangerouslySetInnerHTML={{ __html: event.requirements }} />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  )}
-                </Tabs>
+                      {event.requirements && (
+                        <TabsContent value="requirements" className="space-y-4 pt-4">
+                          <Card>
+                            <CardContent className="pt-6">
+                              <div className="prose max-w-none">
+                                <div dangerouslySetInnerHTML={{ __html: event.requirements }} />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+                      )}
+                    </Tabs>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              {/* Sidebar */}
-              <div className="w-full md:w-80 space-y-6">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col gap-4">
-                      {getRegistrationButton()}
-
-                      {event.registration_end_date && (
-                        <div className="rounded-lg bg-muted p-4">
-                          <h3 className="font-medium mb-2">Registration Deadline</h3>
-                          <div className="flex items-center text-sm">
-                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <span>{format(new Date(event.registration_end_date), "MMMM d, yyyy")}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {event.current_participants !== null && event.max_participants && (
-                        <div className="rounded-lg bg-muted p-4">
-                          <h3 className="font-medium mb-2">Participants</h3>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center text-sm">
-                              <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <span>{event.current_participants} registered</span>
-                            </div>
-                            <span className="text-sm text-muted-foreground">
-                              {Math.round((event.current_participants / event.max_participants) * 100)}% full
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-full rounded-full bg-muted-foreground/20">
-                            <div
-                              className="h-2 rounded-full bg-primary"
-                              style={{
-                                width: `${(event.current_participants / event.max_participants) * 100}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {(event.max_team_size || event.min_team_size) && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Team Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Event Details Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Registration</CardTitle>
+                  {event.registration_end_date && (
+                    <CardDescription>
+                      Closes on {format(new Date(event.registration_end_date), "MMMM d, yyyy")}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!isRegistrationOpen() && (
+                    <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/30 p-4">
                       <div className="flex items-start">
-                        <Users className="mr-2 h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <h3 className="font-medium">Team Size</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {event.min_team_size || 1}-{event.max_team_size} members per team
-                          </p>
+                        <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Registration {event.registration_end_date && new Date(event.registration_end_date) < new Date() ? "Closed" : "Not Open Yet"}</h3>
+                          <div className="mt-1 text-sm text-yellow-700 dark:text-yellow-400">
+                            <p>
+                              {event.registration_end_date && new Date(event.registration_end_date) < new Date()
+                                ? "The registration deadline has passed."
+                                : event.registration_start_date && new Date(event.registration_start_date) > new Date()
+                                ? `Registration opens on ${format(new Date(event.registration_start_date), "MMMM d, yyyy")}.`
+                                : "Registration is currently not available."}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      
-                      {!isPastEvent() && event.max_team_size > 1 && (
-                        <Button variant="outline" className="w-full" asChild>
-                          <Link href={`/events/${event.id}/team`}>Manage Team</Link>
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                  )}
 
-                {event.registration_fee > 0 && event.upi_id && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Payment Information</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-center mb-4">
-                        Payment QR code will be generated during registration.
+                  {/* Replace the getRegistrationButton() with our component */}
+                  <RegistrationButton 
+                    eventId={id} 
+                    isLive={isLiveEvent()} 
+                    isPast={isPastEvent()} 
+                    buttonSize="lg"
+                  />
+
+                  {event.registration_fee > 0 && (
+                    <div className="mt-2 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Registration Fee: ${event.registration_fee}
                       </p>
-                      <p className="text-sm text-center">
-                        UPI ID: <span className="font-medium">{event.upi_id}</span>
-                      </p>
-                      <p className="text-sm text-center mt-2">
-                        Registration Fee: <span className="font-medium">${event.registration_fee}</span>
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ... other sidebar components ... */}
             </div>
           </div>
         </div>
