@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Users,
   Award,
+  Coins
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PointsDisplay } from "./PointsDisplay";
 
 // Map of icon names to their components
 const iconMap = {
@@ -24,7 +26,8 @@ const iconMap = {
   Award,
   ExternalLink,
   MapPin,
-  MoreHorizontal
+  MoreHorizontal,
+  Coins
 };
 
 // Client component wrapper to handle client-side interactions like signout
@@ -92,6 +95,51 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
                                     );
                                 })}
                             </div>
+                            
+                            {/* Blockchain Points Display */}
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="md:col-span-1">
+                                    <PointsDisplay userId={user.id} />
+                                </div>
+                                
+                                {/* Display profile info if fetched */}
+                                <div className="md:col-span-1">
+                                    {participantData ? (
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Your Profile Summary</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                {participantData.name && <p className="mb-1"><span className="font-medium">Name:</span> {participantData.name}</p>}
+                                                {participantData.bio && <p className="mb-1 italic text-muted-foreground">"{participantData.bio}"</p>}
+                                                {participantData.skills && participantData.skills.length > 0 ? (
+                                                    <p><span className="font-medium">Skills:</span> {participantData.skills.join(', ')}</p>
+                                                ) : (
+                                                    <p className="text-muted-foreground text-sm">No skills listed.</p>
+                                                )}
+                                            </CardContent>
+                                            <CardFooter>
+                                                <Link href="/participant/profile">
+                                                    <Button variant="outline" size="sm">View/Edit Full Profile</Button>
+                                                </Link>
+                                            </CardFooter>
+                                        </Card>
+                                    ) : !fetchError && ( // Only show if no error and no data
+                                        <Card>
+                                            <CardHeader><CardTitle>Complete Your Profile</CardTitle></CardHeader>
+                                            <CardContent>
+                                                <p className="text-muted-foreground">Finish setting up your participant profile to see your summary here.</p>
+                                                <p className="text-xs text-muted-foreground mt-2">(Ensure you've added details in the 'participants' table associated with your user ID).</p>
+                                            </CardContent>
+                                            <CardFooter>
+                                                <Link href="/participant/profile">
+                                                    <Button variant="default" size="sm">Go to Profile</Button>
+                                                </Link>
+                                            </CardFooter>
+                                        </Card>
+                                    )}
+                                </div>
+                            </div>
 
                             <Tabs defaultValue="registered" className="w-full">
                                 <TabsList>
@@ -117,42 +165,6 @@ export function ParticipantDashboardClient({ user, participantData, fetchError, 
                                      )}
                                 </TabsContent>
                             </Tabs>
-
-                            {/* Display profile info if fetched - updated structure */}
-                             {participantData ? (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Your Profile Summary</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {participantData.name && <p className="mb-1"><span className="font-medium">Name:</span> {participantData.name}</p>}
-                                        {participantData.bio && <p className="mb-1 italic text-muted-foreground">"{participantData.bio}"</p>}
-                                        {participantData.skills && participantData.skills.length > 0 ? (
-                                            <p><span className="font-medium">Skills:</span> {participantData.skills.join(', ')}</p>
-                                        ) : (
-                                            <p className="text-muted-foreground text-sm">No skills listed.</p>
-                                        )}
-                                    </CardContent>
-                                    <CardFooter>
-                                        <Link href="/participant/profile">
-                                            <Button variant="outline" size="sm">View/Edit Full Profile</Button>
-                                        </Link>
-                                    </CardFooter>
-                                </Card>
-                             ) : !fetchError && ( // Only show if no error and no data
-                                <Card>
-                                    <CardHeader><CardTitle>Complete Your Profile</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <p className="text-muted-foreground">Finish setting up your participant profile to see your summary here.</p>
-                                        <p className="text-xs text-muted-foreground mt-2">(Ensure you've added details in the 'participants' table associated with your user ID).</p>
-                                    </CardContent>
-                                    <CardFooter>
-                                        <Link href="/participant/profile">
-                                            <Button variant="default" size="sm">Go to Profile</Button>
-                                        </Link>
-                                    </CardFooter>
-                                </Card>
-                             )}
                         </div>
                     </div>
                 )}
@@ -199,53 +211,39 @@ function EventCard({ event, isCompleted = false }: {
                                         <Link href={`/events/${event.id}/certificate`}>View Certificate</Link>
                                     </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem asChild>
-                                    <a href="#" target="_blank" rel="noopener noreferrer">
-                                        <ExternalLink className="mr-2 h-4 w-4" />
-                                        Visit Event Site
-                                    </a>
-                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                    <p className="text-muted-foreground">{event.description}</p>
-                    <div className="mt-4 space-y-2">
-                        <div className="flex items-center text-sm text-muted-foreground">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            {event.date}
+                    
+                    <p className="text-muted-foreground line-clamp-2 mb-4">{event.description}</p>
+                    
+                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                        <div className="flex items-center">
+                            <Calendar className="mr-1 h-4 w-4" />
+                            <span>{event.date}</span>
                         </div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="mr-2 h-4 w-4" />
-                            {event.location}
+                        <div className="flex items-center">
+                            <MapPin className="mr-1 h-4 w-4" />
+                            <span>{event.location}</span>
                         </div>
-                        {event.teamName && (
-                            <div className="flex items-center text-sm text-muted-foreground">
-                                <Users className="mr-2 h-4 w-4" />
-                                Team: {event.teamName} ({event.teamMembers} members)
+                        {event.teamMembers && (
+                            <div className="flex items-center">
+                                <Users className="mr-1 h-4 w-4" />
+                                <span>Team: {typeof event.teamMembers === 'number' ? `${event.teamMembers} member${event.teamMembers !== 1 ? 's' : ''}` : event.teamMembers}</span>
                             </div>
                         )}
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                        <div>
-                            <span
-                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                    isCompleted
-                                        ? "bg-blue-50 text-blue-700"
-                                        : event.status === "Registered"
-                                        ? "bg-green-50 text-green-700"
-                                        : "bg-yellow-50 text-yellow-700"
-                                }`}
-                            >
-                                {isCompleted
-                                    ? event.result || "Completed"
-                                    : event.status}
-                            </span>
-                        </div>
-                        <Link href={`/events/${event.id}`}>
-                            <Button variant="outline" size="sm">
-                                {isCompleted ? "View Details" : "Manage Registration"}
-                            </Button>
-                        </Link>
+                        {event.status && (
+                            <div className="flex items-center">
+                                <Clock className="mr-1 h-4 w-4" />
+                                <span>Status: {event.status}</span>
+                            </div>
+                        )}
+                        {isCompleted && event.result && (
+                            <div className="flex items-center">
+                                <Award className="mr-1 h-4 w-4" />
+                                <span>Result: {event.result}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -253,7 +251,7 @@ function EventCard({ event, isCompleted = false }: {
     );
 }
 
-// --- ParticipantEvent Interface ---
+// Define the ParticipantEvent interface
 interface ParticipantEvent {
     id: string;
     title: string;

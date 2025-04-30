@@ -8,7 +8,8 @@ import {
   MapPin,
   MoreHorizontal,
   Users,
-  Award, // Assuming Award is used for a stat
+  Award,
+  Coins
 } from "lucide-react";
 import { Auth } from '@/lib/auth-server';
 import { createServerComponentClient } from '@/lib/supabase/server';
@@ -93,6 +94,23 @@ export default async function ParticipantDashboardPage() {
 
         if (registrationError) throw registrationError; // Throw to be caught below
 
+        // --- Fetch Blockchain Points ---
+        let pointsBalance = 0;
+        try {
+            // Fetch total points from blockchain balance
+            const pointsResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/blockchain/balance?participantId=${user.id}`, {
+                headers: { 'Cache-Control': 'no-store' }
+            });
+            
+            if (pointsResponse.ok) {
+                const pointsData = await pointsResponse.json();
+                pointsBalance = pointsData.balance || 0;
+            }
+        } catch (pointsError) {
+            console.error("Error fetching points balance:", pointsError);
+            // Continue with 0 points if fetch fails
+        }
+
         // --- Process Registrations ---
         const now = new Date();
         registrationData.forEach((reg: FetchedRegistration) => {
@@ -133,12 +151,13 @@ export default async function ParticipantDashboardPage() {
         });
 
         // --- Calculate Stats ---
-        const teamCount = registrationData.filter(reg => reg.team_id !== null).length;
+        const teamCount = registrationData.filter(reg => reg.teams !== null).length;
+        const approvedCount = registrationData.filter(reg => reg.status === 'approved').length;
         stats = [
             { title: "Total Events Registered", value: registrationData.length.toString(), iconName: "Calendar" },
             { title: "Upcoming/Ongoing Events", value: registeredEvents.length.toString(), iconName: "Clock" },
-            { title: "Events Joined with Team", value: teamCount.toString(), iconName: "Users" },
-            // { title: "Awards/Wins", value: "0", iconName: "Award" }, // Placeholder
+            { title: "Blockchain Points", value: pointsBalance.toString(), iconName: "Coins" },
+            { title: "Team Participations", value: teamCount.toString(), iconName: "Users" },
         ];
 
     } catch (err: any) {
