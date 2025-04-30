@@ -132,19 +132,19 @@ export async function fetchEventRegistrations(eventId: string) {
         // Map the registrations with participant data
         registrationsData = registrations.map(reg => {
           const participant = participantMap[reg.participant_id];
-          
-          return {
-            id: reg.id,
-            userId: reg.participant_id,
+        
+        return {
+          id: reg.id,
+          userId: reg.participant_id,
             name: participant?.name || 'Unnamed Participant',
             email: participant?.email || 'No Email',
             avatarUrl: participant?.avatar_url,
-            registrationDate: reg.created_at,
-            status: reg.status as RegistrationUI['status'],
+          registrationDate: reg.created_at,
+          status: reg.status as RegistrationUI['status'],
             registrationType: reg.registration_type,
             paymentStatus: reg.payment_status,
             teamId: reg.team_id
-          };
+        };
         });
       }
     }
@@ -184,21 +184,21 @@ export async function approveRegistrationAction(eventId: string, registrationId:
   console.log("registrationId:", resolvedRegistrationId);
 
   try {
-    // 1. Get the current authenticated user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+  // 1. Get the current authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
       console.error("Authentication error:", userError);
-      throw new Error("Authentication required. Please log in.");
-    }
+    throw new Error("Authentication required. Please log in.");
+  }
     
     console.log("User ID:", user.id);
 
-    // 2. Check if user is the organizer of this event (authorization)
-    const { data: event, error: eventError } = await supabase
-      .from("events")
+  // 2. Check if user is the organizer of this event (authorization)
+  const { data: event, error: eventError } = await supabase
+    .from("events")
       .select("organizer_id, current_participants, max_participants")
       .eq("id", resolvedEventId)
-      .single();
+    .single();
 
     if (eventError) {
       console.error("Event fetch error:", eventError);
@@ -206,21 +206,21 @@ export async function approveRegistrationAction(eventId: string, registrationId:
     }
     if (!event) {
       console.error("Event not found with ID:", resolvedEventId);
-      throw new Error("Event not found.");
-    }
+    throw new Error("Event not found.");
+  }
 
     console.log("Event data:", event);
 
-    if (event.organizer_id !== user.id) {
+  if (event.organizer_id !== user.id) {
       console.error("Authorization error: User is not the organizer");
       console.log("Event organizer_id:", event.organizer_id);
       console.log("User id:", user.id);
-      throw new Error("Unauthorized. Only the event organizer can approve registrations.");
-    }
+    throw new Error("Unauthorized. Only the event organizer can approve registrations.");
+  }
 
     // 3. Get the current registration status
     const { data: registration, error: regError } = await supabase
-      .from("registrations")
+    .from("registrations")
       .select("status")
       .eq("id", resolvedRegistrationId)
       .single();
@@ -258,10 +258,10 @@ export async function approveRegistrationAction(eventId: string, registrationId:
       .eq("id", resolvedRegistrationId)
       .select();
 
-    if (updateError) {
-      console.error("Error approving registration:", updateError);
-      throw new Error("Failed to approve registration.");
-    }
+  if (updateError) {
+    console.error("Error approving registration:", updateError);
+    throw new Error("Failed to approve registration.");
+  }
 
     console.log("Update result:", updateResult);
 
@@ -341,21 +341,21 @@ export async function rejectRegistrationAction(
   console.log("reason:", resolvedReason);
 
   try {
-    // 1. Get the current authenticated user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+  // 1. Get the current authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
       console.error("Authentication error:", userError);
-      throw new Error("Authentication required. Please log in.");
-    }
+    throw new Error("Authentication required. Please log in.");
+  }
     
     console.log("User ID:", user.id);
 
-    // 2. Check if user is the organizer of this event (authorization)
-    const { data: event, error: eventError } = await supabase
-      .from("events")
+  // 2. Check if user is the organizer of this event (authorization)
+  const { data: event, error: eventError } = await supabase
+    .from("events")
       .select("organizer_id")
       .eq("id", resolvedEventId)
-      .single();
+    .single();
 
     if (eventError) {
       console.error("Event fetch error:", eventError);
@@ -363,17 +363,17 @@ export async function rejectRegistrationAction(
     }
     if (!event) {
       console.error("Event not found with ID:", resolvedEventId);
-      throw new Error("Event not found.");
-    }
+    throw new Error("Event not found.");
+  }
 
     console.log("Event data:", event);
 
-    if (event.organizer_id !== user.id) {
+  if (event.organizer_id !== user.id) {
       console.error("Authorization error: User is not the organizer");
       console.log("Event organizer_id:", event.organizer_id);
       console.log("User id:", user.id);
-      throw new Error("Unauthorized. Only the event organizer can reject registrations.");
-    }
+    throw new Error("Unauthorized. Only the event organizer can reject registrations.");
+  }
 
     // 3. Get the current registration status
     const { data: registration, error: regError } = await supabase
@@ -395,18 +395,18 @@ export async function rejectRegistrationAction(
 
     // 4. Update the registration status
     const { data: updateResult, error: updateError } = await supabase
-      .from("registrations")
-      .update({ 
-        status: "rejected",
+    .from("registrations")
+    .update({ 
+      status: "rejected",
         updated_at: new Date().toISOString()
-      })
+    })
       .eq("id", resolvedRegistrationId)
       .select();
 
-    if (updateError) {
-      console.error("Error rejecting registration:", updateError);
-      throw new Error("Failed to reject registration.");
-    }
+  if (updateError) {
+    console.error("Error rejecting registration:", updateError);
+    throw new Error("Failed to reject registration.");
+  }
 
     console.log("Update result:", updateResult);
 
@@ -444,17 +444,17 @@ export async function rejectRegistrationAction(
         const newParticipantCount = Math.max(0, (currentEvent.current_participants || 0) - 1);
         
         console.log("Decrementing participant count to:", newParticipantCount);
-        
+  
         const { data: decrementResult, error: decrementError } = await supabase
-          .from("events")
-          .update({ current_participants: newParticipantCount })
+    .from("events")
+    .update({ current_participants: newParticipantCount })
           .eq("id", resolvedEventId)
           .select();
 
         console.log("Decrement result:", decrementResult);
-        if (decrementError) {
-          console.error("Error decrementing participant count:", decrementError);
-        }
+  if (decrementError) {
+    console.error("Error decrementing participant count:", decrementError);
+  }
       }
     }
 

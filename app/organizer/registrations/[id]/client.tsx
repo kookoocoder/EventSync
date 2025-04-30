@@ -207,8 +207,8 @@ export function RegistrationsClient({
             reg.id === registrationId 
               ? { ...reg, status: "approved", isLoading: false } 
               : reg
-          )
-        );
+        )
+      );
       } else {
         throw new Error("Failed to approve registration");
       }
@@ -279,7 +279,7 @@ export function RegistrationsClient({
     setSelectedRegistration(null)
   }
 
-  const handleCloseRejectDialog = () => {
+   const handleCloseRejectDialog = () => {
     setIsRejectDialogOpen(false);
   };
 
@@ -537,12 +537,12 @@ export function RegistrationsClient({
                    <div>
                      <p className="text-sm text-muted-foreground">Status</p>
                      <Badge variant={
-                          selectedRegistration.status === "approved" ? "default" :
-                          selectedRegistration.status === "rejected" ? "destructive" :
-                          "secondary"
-                      }>
-                          {selectedRegistration.status.charAt(0).toUpperCase() + selectedRegistration.status.slice(1)}
-                      </Badge>
+                        selectedRegistration.status === "approved" ? "default" :
+                        selectedRegistration.status === "rejected" ? "destructive" :
+                        "secondary"
+                    }>
+                        {selectedRegistration.status.charAt(0).toUpperCase() + selectedRegistration.status.slice(1)}
+                    </Badge>
                    </div>
                    <div>
                      <p className="text-sm text-muted-foreground">Registration Type</p>
@@ -562,7 +562,7 @@ export function RegistrationsClient({
                        <p>{selectedRegistration.teamId}</p>
                      </div>
                    )}
-                 </div>
+                    </div>
                 </div>
             )}
              <DialogFooter className="mt-4">
