@@ -71,7 +71,7 @@ export function SiteHeader() {
       <div className="container pl-4 pr-8 mx-auto max-w-7xl flex h-16 items-center justify-between">
         <MainNav />
         <div className="flex items-center gap-4">
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center mr-1 relative z-50">
             <ThemeToggle />
           </div>
 

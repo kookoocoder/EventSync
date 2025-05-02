@@ -17,7 +17,7 @@ export function HeroSection() {
           <FadeInSection direction="up" delay={0.1}>
             <div className="space-y-6">
               <motion.h1 
-                className="text-4xl font-bold tracking-tighter text-white sm:text-5xl md:text-6xl lg:text-7xl"
+                className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl text-foreground dark:text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
@@ -25,7 +25,7 @@ export function HeroSection() {
                 Innovate. Create. <span className="text-accent">Collaborate.</span>
               </motion.h1>
               <motion.p 
-                className="mx-auto max-w-[700px] text-lg text-white/90 md:text-xl"
+                className="mx-auto max-w-[700px] text-lg md:text-xl text-foreground/90 dark:text-white/90"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
@@ -39,12 +39,23 @@ export function HeroSection() {
           <FadeInSection direction="up" delay={0.4}>
             <div className="flex flex-col gap-5 sm:flex-row">
               <Link href="/events">
-                <Button size="lg" className="bg-white text-primary-dark hover:bg-white/90 px-8 py-6 rounded-full font-medium text-base btn-primary">
+                <Button 
+                  size="lg" 
+                  className="px-8 py-6 rounded-full font-medium text-base btn-primary 
+                             bg-white text-primary-dark hover:bg-white/90 
+                             dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+                >
                   Explore Events <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/register?type=organizer">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 px-8 py-6 rounded-full font-medium text-base">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="px-8 py-6 rounded-full font-medium text-base 
+                             border-border text-foreground hover:bg-accent hover:text-accent-foreground 
+                             dark:border-white dark:text-white dark:hover:bg-white/10"
+                >
                   Organize an Event
                 </Button>
               </Link>
@@ -71,7 +82,7 @@ export function HeroSection() {
                 className="text-center" 
                 whileHover={{ y: -5, transition: { duration: 0.2 } }}
               >
-                <p className="text-3xl font-bold text-white">र 15Cr+</p>
+                <p className="text-3xl font-bold text-white">₹ 15Cr+</p>
                 <p className="text-sm text-white/80">Total Event Value Managed</p>
               </motion.div>
             </div>
