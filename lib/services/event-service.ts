@@ -79,17 +79,17 @@ export async function getPastEvents(): Promise<DBEvent[]> {
 }
 
 /**
- * Fetches hackathon events by type
+ * Fetches specialized event types by type
  */
-export async function getHackathonEvents(type: 'upcoming' | 'live' | 'past'): Promise<DBEvent[]> {
+export async function getSpecializedEvents(type: 'upcoming' | 'live' | 'past', eventType: string = 'specialized'): Promise<DBEvent[]> {
   const now = new Date().toISOString();
   try {
     const supabase = await createServerComponentClient();
     let query = supabase
       .from('events')
       .select('*')
-      .eq('event_type', 'hackathon')
-      .eq('is_published', true); // Ensure hackathons are also published
+      .eq('event_type', eventType)
+      .eq('is_published', true); // Ensure events are published
 
     if (type === 'upcoming') {
       query = query.gte('start_date', now).order('start_date', { ascending: true });
@@ -100,12 +100,12 @@ export async function getHackathonEvents(type: 'upcoming' | 'live' | 'past'): Pr
     }
     const { data, error } = await query;
     if (error) {
-      console.error(`Error fetching ${type} hackathon events:`, error);
+      console.error(`Error fetching ${type} ${eventType} events:`, error);
       return []; // Return empty array on error
     }
     return (data as DBEvent[]) || [];
   } catch (error) {
-    console.error(`Unexpected error in getHackathonEvents (${type}):`, error);
+    console.error(`Unexpected error in getSpecializedEvents (${type}, ${eventType}):`, error);
     return [];
   }
 }

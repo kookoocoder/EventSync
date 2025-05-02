@@ -13,19 +13,19 @@ export default function AboutPage() {
     {
       name: "Alex Johnson",
       role: "Founder & CEO",
-      bio: "Former software engineer with a passion for community building and hackathons.",
+      bio: "Former software engineer with a passion for community building and event management.",
       avatar: "/placeholder.svg?height=200&width=200",
     },
     {
       name: "Sarah Chen",
       role: "CTO",
-      bio: "Full-stack developer and hackathon enthusiast with 10+ years of experience.",
+      bio: "Full-stack developer and event technology expert with 10+ years of experience.",
       avatar: "/placeholder.svg?height=200&width=200",
     },
     {
       name: "Michael Rodriguez",
       role: "Community Manager",
-      bio: "Organized over 50 hackathons and passionate about fostering innovation.",
+      bio: "Organized over 50 professional events and passionate about fostering connections.",
       avatar: "/placeholder.svg?height=200&width=200",
     },
     {
@@ -44,10 +44,10 @@ export default function AboutPage() {
           <div className="container px-4 md:px-6">
             <div className="flex flex-col items-center text-center">
               <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl">
-                About HackSync
+                About EventSync
               </h1>
               <p className="mt-4 max-w-[700px] text-muted-foreground md:text-xl">
-                Empowering innovators and creators through collaborative hackathons and coding challenges.
+                Empowering individuals and organizations through innovative event management solutions.
               </p>
             </div>
           </div>
@@ -59,20 +59,20 @@ export default function AboutPage() {
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">Our Mission</h2>
                 <p className="mt-4 text-muted-foreground md:text-lg">
-                  At HackSync, we believe in the power of collaboration and innovation. Our mission is to create a
-                  platform where developers, designers, and creative thinkers can come together to solve real-world
-                  problems, learn new skills, and build meaningful connections.
+                  At EventSync, we believe in the power of connection and innovation. Our mission is to create a
+                  platform where individuals and organizations can come together to host, discover, and participate in 
+                  events that solve real-world problems, foster learning, and build meaningful relationships.
                 </p>
                 <p className="mt-4 text-muted-foreground md:text-lg">
-                  We're dedicated to making hackathons accessible to everyone, regardless of experience level or
-                  background. Whether you're a seasoned developer or just starting your coding journey, there's a place
-                  for you in our community.
+                  We're dedicated to making events accessible to everyone, regardless of experience level or
+                  background. Whether you're organizing a major conference or attending your first community meetup, there's a place
+                  for you in our ecosystem.
                 </p>
               </div>
               <div className="flex items-center justify-center">
                 <img
                   src="/placeholder.svg?height=400&width=600"
-                  alt="Team collaborating at a hackathon"
+                  alt="Team collaborating at an event"
                   className="rounded-lg object-cover"
                   width={600}
                   height={400}
@@ -138,7 +138,7 @@ export default function AboutPage() {
           <div className="container px-4 md:px-6">
             <h2 className="text-3xl font-bold tracking-tight text-center mb-4">Our Team</h2>
             <p className="text-center text-muted-foreground max-w-[700px] mx-auto mb-12 md:text-lg">
-              Meet the passionate individuals behind HackSync who are dedicated to creating exceptional hackathon
+              Meet the passionate individuals behind EventSync who are dedicated to creating exceptional event
               experiences.
             </p>
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -172,12 +172,12 @@ export default function AboutPage() {
               <Award className="h-12 w-12 text-primary mb-4" />
               <h2 className="text-3xl font-bold tracking-tight">Our Impact</h2>
               <p className="mt-4 max-w-[700px] text-muted-foreground md:text-xl">
-                Since our founding, we've helped thousands of innovators bring their ideas to life.
+                Since our founding, we've helped thousands of organizers and attendees create memorable experiences.
               </p>
               <div className="mt-12 grid gap-8 sm:grid-cols-3">
                 <div className="flex flex-col items-center">
                   <p className="text-4xl font-bold">500+</p>
-                  <p className="text-muted-foreground">Hackathons Hosted</p>
+                  <p className="text-muted-foreground">Events Hosted</p>
                 </div>
                 <div className="flex flex-col items-center">
                   <p className="text-4xl font-bold">50,000+</p>
@@ -185,11 +185,11 @@ export default function AboutPage() {
                 </div>
                 <div className="flex flex-col items-center">
                   <p className="text-4xl font-bold">₹15Cr+</p>
-                  <p className="text-muted-foreground">In Prizes Awarded</p>
+                  <p className="text-muted-foreground">In Value Generated</p>
                 </div>
               </div>
               <div className="mt-12">
-                <Link href="/hackathons">
+                <Link href="/events">
                   <Button size="lg">
                     Join Our Community <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -202,7 +202,7 @@ export default function AboutPage() {
       <footer className="border-t py-6 md:py-0">
         <div className="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} HackSync. All rights reserved.
+            &copy; {new Date().getFullYear()} EventSync. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <Link href="/terms" className="hover:underline underline-offset-4">

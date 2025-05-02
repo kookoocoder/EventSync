@@ -25,7 +25,7 @@ export default function ParticipantProfilePage() {
     name: "Jane Participant",
     email: "jane@example.com",
     avatar: "/placeholder.svg?height=200&width=200",
-    bio: "Full-stack developer passionate about AI and machine learning. I love participating in hackathons to challenge myself and meet like-minded people.",
+    bio: "Full-stack developer passionate about AI and machine learning. I love participating in events to challenge myself and meet like-minded people.",
     location: "San Francisco, CA",
     website: "https://janedev.com",
     github: "janedev",
@@ -33,7 +33,7 @@ export default function ParticipantProfilePage() {
     linkedin: "jane-participant",
     skills: ["JavaScript", "React", "Node.js", "Python", "TensorFlow", "UI/UX Design"],
     interests: ["Artificial Intelligence", "Web Development", "Open Source", "Data Science"],
-    hackathonsJoined: 12,
+    eventsJoined: 12,
     projectsBuilt: 15,
     achievements: [
       {
@@ -43,7 +43,7 @@ export default function ParticipantProfilePage() {
       },
       {
         title: "Best UI/UX",
-        event: "Web3 Hackathon",
+        event: "Web3 Conference",
         date: "January 2024",
       },
       {
@@ -133,8 +133,8 @@ export default function ParticipantProfilePage() {
 
                       <div className="mt-6 grid w-full grid-cols-3 gap-2 text-center">
                         <div className="rounded-lg bg-muted p-2">
-                          <p className="text-2xl font-bold">{user.hackathonsJoined}</p>
-                          <p className="text-xs text-muted-foreground">Hackathons</p>
+                          <p className="text-2xl font-bold">{user.eventsJoined}</p>
+                          <p className="text-xs text-muted-foreground">Events</p>
                         </div>
                         <div className="rounded-lg bg-muted p-2">
                           <p className="text-2xl font-bold">{user.projectsBuilt}</p>

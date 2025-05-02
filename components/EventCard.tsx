@@ -39,10 +39,10 @@ export interface EventCardProps {
   event: DBEvent;
   isLive?: boolean;
   isPast?: boolean;
-  isHackathon?: boolean;
+  isSpecializedEvent?: boolean;
 }
 
-export function EventCard({ event, isLive = false, isPast = false, isHackathon = false }: EventCardProps) {
+export function EventCard({ event, isLive = false, isPast = false, isSpecializedEvent = false }: EventCardProps) {
   // Add hover state for animations
   const [isHovered, setIsHovered] = useState(false);
   
@@ -59,7 +59,7 @@ export function EventCard({ event, isLive = false, isPast = false, isHackathon =
   }
 
   // Determine event type based on database field or prop
-  const eventType = event.event_type === 'hackathon' || isHackathon ? "hackathons" : "events";
+  const eventType = event.event_type === 'specialized' || isSpecializedEvent ? "specialized" : "events";
 
   // Format date range for display
   const formatDateRange = () => {
@@ -218,7 +218,7 @@ export function EventCard({ event, isLive = false, isPast = false, isHackathon =
         ) : (
           <RegistrationButton 
             eventId={event.id}
-            eventType={eventType as 'events' | 'hackathons'}
+            eventType={eventType as 'events' | 'specialized'}
             isLive={!!eventIsLive}
             isPast={!!isPast}
             showStatus={false}

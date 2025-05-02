@@ -68,9 +68,9 @@ export default function ContactPage() {
                     <div>
                       <h3 className="font-medium">Email Us</h3>
                       <p className="text-muted-foreground">
-                        info@hacksync.com
+                        info@eventsync.com
                         <br />
-                        support@hacksync.com
+                        support@eventsync.com
                       </p>
                     </div>
                   </div>
@@ -227,45 +227,45 @@ export default function ContactPage() {
             <div className="flex flex-col items-center text-center">
               <h2 className="text-3xl font-bold tracking-tight">Frequently Asked Questions</h2>
               <p className="mt-4 max-w-[700px] text-muted-foreground md:text-lg">
-                Find answers to common questions about HackSync and our hackathons.
+                Find answers to common questions about EventSync and our events.
               </p>
               <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3 text-left">
                 <div className="space-y-2">
-                  <h3 className="font-medium">How do I register for a hackathon?</h3>
+                  <h3 className="font-medium">How do I register for an event?</h3>
                   <p className="text-muted-foreground">
-                    You can register by creating an account on HackSync and then navigating to the hackathon page you're
+                    You can register by creating an account on EventSync and then navigating to the event page you're
                     interested in.
                   </p>
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-medium">Do I need to have a team to participate?</h3>
                   <p className="text-muted-foreground">
-                    No, you can register as an individual and either form a team later or participate solo.
+                    No, you can register as an individual and either form a team later or participate solo for team events.
                   </p>
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-medium">Are there any fees to participate?</h3>
                   <p className="text-muted-foreground">
-                    Some hackathons have registration fees while others are free. The fee details are listed on each
-                    hackathon page.
+                    Some events have registration fees while others are free. The fee details are listed on each
+                    event page.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-medium">How can I organize a hackathon on HackSync?</h3>
+                  <h3 className="font-medium">How can I organize an event on EventSync?</h3>
                   <p className="text-muted-foreground">
-                    Register as an organizer and use our platform to create and manage your hackathon event.
+                    Register as an organizer and use our platform to create and manage your event.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-medium">What happens after I register for a hackathon?</h3>
+                  <h3 className="font-medium">What happens after I register for an event?</h3>
                   <p className="text-muted-foreground">
                     You'll receive a confirmation email with details about the event, schedule, and next steps.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-medium">Can I participate in multiple hackathons?</h3>
+                  <h3 className="font-medium">Can I participate in multiple events?</h3>
                   <p className="text-muted-foreground">
-                    Yes, you can register for and participate in as many hackathons as you'd like.
+                    Yes, you can register for and participate in as many events as you'd like.
                   </p>
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function ContactPage() {
       <footer className="border-t py-6 md:py-0">
         <div className="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} HackSync. All rights reserved.
+            &copy; {new Date().getFullYear()} EventSync. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <Link href="/terms" className="hover:underline underline-offset-4">

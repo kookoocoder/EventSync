@@ -14,7 +14,7 @@ export interface RegistrationButtonProps {
   eventId: string;
   isLive?: boolean;
   isPast?: boolean;
-  eventType?: 'events' | 'hackathons';
+  eventType?: 'events' | 'specialized';
   buttonSize?: 'default' | 'sm' | 'lg';
   className?: string;
   showStatus?: boolean;

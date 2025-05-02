@@ -259,7 +259,7 @@ export default function CreateEventPage() {
           <div className="flex flex-col gap-8">
              {/* Header and Error Display */}
               <div className="flex items-center justify-between">
-                  <h1 className="text-3xl font-bold tracking-tight">Create New Hackathon</h1>
+                  <h1 className="text-3xl font-bold tracking-tight">Create New Event</h1>
                   <Link href="/organizer/dashboard"><Button variant="outline">Cancel</Button></Link>
               </div>
               {/* General Error */}
@@ -287,14 +287,14 @@ export default function CreateEventPage() {
                       {/* Title */}
                       <div className="space-y-2">
                         <Label htmlFor="title">Event Title</Label>
-                        <Input id="title" name="title" placeholder="e.g., AI Innovation Hackathon 2025" required
+                        <Input id="title" name="title" placeholder="e.g., AI Innovation Summit 2025" required
                                value={formData.title} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.title} />
                         {state?.fieldErrors?.title && <p className="text-xs text-destructive">{state.fieldErrors.title.join(', ')}</p>}
                       </div>
                       {/* Description */}
                       <div className="space-y-2">
                         <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" name="description" placeholder="Describe your hackathon..." className="min-h-32" required
+                        <Textarea id="description" name="description" placeholder="Describe your event..." className="min-h-32" required
                                   value={formData.description} onChange={handleChange} aria-invalid={!!state?.fieldErrors?.description} />
                          {state?.fieldErrors?.description && <p className="text-xs text-destructive">{state.fieldErrors.description.join(', ')}</p>}
                       </div>
@@ -494,7 +494,7 @@ export default function CreateEventPage() {
                       <Button type="button" variant="outline" onClick={() => handlePrevTab("schedule")}> <ArrowLeft className="mr-2 h-4 w-4" /> Back </Button>
                        {/* Submit Button */}
                        <Button type="submit" disabled={isSubmitting || isPending}>
-                            {(isSubmitting || isPending) ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating... </> ) : ( <> Create Hackathon <Save className="ml-2 h-4 w-4" /> </> )}
+                            {(isSubmitting || isPending) ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating... </> ) : ( <> Create Event <Save className="ml-2 h-4 w-4" /> </> )}
                        </Button>
                     </div>
                   </TabsContent>

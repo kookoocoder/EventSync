@@ -32,7 +32,7 @@ export default function ManageParticipantsPage() {
   
   // Mock data - replace with actual data from Supabase
   const events = [
-    { id: "1", name: "AI Hackathon 2024" },
+    { id: "1", name: "AI Innovation Summit 2024" },
     { id: "2", name: "Web3 Developer Conference" },
     { id: "3", name: "Mobile App Challenge" }
   ]

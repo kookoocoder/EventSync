@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
     '/organizer',
     '/profile',
     '/settings'
-    // Add specific protected pages if needed, e.g., '/hackathons/[id]/team'
+    // Add specific protected pages if needed, e.g., '/events/[id]/team'
   ];
   // Check if the current path *starts with* any of the protected routes
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));

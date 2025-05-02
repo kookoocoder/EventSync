@@ -139,12 +139,12 @@ export default function RegisterPage() {
                                         <Label htmlFor="participant" className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground ${userType === 'participant' ? 'border-primary' : ''}`}>
                                             <RadioGroupItem value="participant" id="participant" className="sr-only" />
                                              Participant
-                                             <span className="block text-xs font-normal text-muted-foreground mt-1">Join and compete in hackathons.</span>
+                                             <span className="block text-xs font-normal text-muted-foreground mt-1">Join and participate in events.</span>
                                         </Label>
                                         <Label htmlFor="organizer" className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground ${userType === 'organizer' ? 'border-primary' : ''}`}>
                                              <RadioGroupItem value="organizer" id="organizer" className="sr-only" />
                                               Organizer
-                                              <span className="block text-xs font-normal text-muted-foreground mt-1">Host and manage hackathons.</span>
+                                              <span className="block text-xs font-normal text-muted-foreground mt-1">Host and manage events.</span>
                                         </Label>
                                     </RadioGroup>
                                 </div>
