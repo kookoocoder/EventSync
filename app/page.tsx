@@ -3,9 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HeroSection } from "@/components/hero-section";
-import { SiteHeader } from "@/components/SiteHeader";
-import { EventCard } from "@/components/EventCard";
+import { HeroSection, SiteHeader, EventCard } from "@/app/ClientComponents";
 import { getUpcomingEvents, getLiveEvents, getPastEvents } from "@/lib/services/event-service";
 
 export default async function HomePage() {

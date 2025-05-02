@@ -13,16 +13,19 @@ const nextConfig: NextConfig = {
         port: '', // Optional: Defaults to '' (standard ports 80/443)
         pathname: '/**', // Optional: Allows any path on this hostname
       },
-      // **Important:** If you plan to load images from Supabase Storage,
-      // you'll need to add its hostname here as well.
-      // Example (replace with your actual Supabase URL hostname):
-      // {
-      //   protocol: 'https',
-      //   hostname: 'tqxurzriebayjklxhnyf.supabase.co', // Replace with YOUR project ref hostname
-      //   port: '',
-      //   pathname: '/storage/v1/object/**', // Adjust if your storage paths differ
-      // },
+      // Enable Supabase Storage URLs
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/**',
+      },
     ],
+    // Add image optimization settings
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   /* other config options might be here */
   

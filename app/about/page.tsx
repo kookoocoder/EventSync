@@ -184,7 +184,7 @@ export default function AboutPage() {
                   <p className="text-muted-foreground">Participants</p>
                 </div>
                 <div className="flex flex-col items-center">
-                  <p className="text-4xl font-bold">$2M+</p>
+                  <p className="text-4xl font-bold">₹15Cr+</p>
                   <p className="text-muted-foreground">In Prizes Awarded</p>
                 </div>
               </div>

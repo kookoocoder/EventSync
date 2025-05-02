@@ -53,7 +53,7 @@ export default async function OrganizerDashboardPage() {
     { title: "Total Events", value: "0", icon: Calendar },
     { title: "Total Participants", value: "0", icon: Users },
     { title: "Active Events", value: "0", icon: Clock },
-    { title: "Prize Money Awarded", value: "$0", icon: Trophy },
+    { title: "Prize Money Awarded", value: "₹0", icon: Trophy },
   ]
   
   try {
@@ -186,9 +186,9 @@ export default async function OrganizerDashboardPage() {
         }
       }
     })
-    
-    // Format prize money with '$' prefix and commas
-    const formattedPrizeMoney = '$' + totalPrizeMoney.toLocaleString()
+  
+    // Format prize money with '₹' prefix and commas
+    const formattedPrizeMoney = '₹' + totalPrizeMoney.toLocaleString()
     
     // Update stats
     stats = [
@@ -229,16 +229,16 @@ export default async function OrganizerDashboardPage() {
               </div>
 
               {/* Stats Cards */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
                 {stats.map((stat, index) => (
-                  <Card key={index}>
+                  <Card key={index} className="dashboard-stat overflow-hidden border">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between space-y-0">
                         <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                        <stat.icon className="h-5 w-5 text-muted-foreground" />
+                        <stat.icon className="h-5 w-5 text-primary-light" />
                       </div>
                       <div className="mt-3">
-                        <p className="text-3xl font-bold">{stat.value}</p>
+                        <p className="text-3xl font-['Outfit'] font-bold">{stat.value}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -326,48 +326,50 @@ function EventCard({ event, isPast = false }: {
   isPast?: boolean
 }) {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden card-hover rounded-xl">
       <div className="flex flex-col md:flex-row">
         <div className="md:w-1/4 lg:w-1/5 flex-shrink-0">
-          <img
-            src={event.image || "/placeholder.svg"}
-            alt={event.title}
-            className="h-full w-full object-cover aspect-video md:aspect-auto" // Adjust aspect ratio
-          />
+          <div className="relative h-full">
+            <img
+              src={event.image || "/placeholder.svg"}
+              alt={event.title}
+              className="h-full w-full object-cover aspect-video md:aspect-auto transition-transform duration-500 hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+          </div>
         </div>
         <div className="flex flex-1 flex-col">
           <CardHeader>
-            <div className="flex items-start justify-between gap-2"> {/* Use items-start */}
-              <div className="flex-1"> {/* Allow title/desc to wrap */}
-                <CardTitle>{event.title}</CardTitle>
-                <CardDescription className="mt-1 line-clamp-2">{event.description}</CardDescription> {/* Limit description lines */}
+            <div className="flex items-start justify-between gap-2"> 
+              <div className="flex-1"> 
+                <CardTitle className="font-['Outfit']">{event.title}</CardTitle>
+                <CardDescription className="mt-1 line-clamp-2">{event.description}</CardDescription>
               </div>
-              <div className="flex-shrink-0"> {/* Prevent dropdown from wrapping */}
+              <div className="flex-shrink-0"> 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="hover:bg-muted/80">
                       <MoreHorizontal className="h-4 w-4" />
                       <span className="sr-only">Open menu</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-[200px]">
                     <DropdownMenuItem asChild>
-                      <Link href={`/events/${event.id}`}> {/* Link to public details page */}
-                        <Eye className="mr-2 h-4 w-4" /> View Public Page
+                      <Link href={`/events/${event.id}`}> 
+                        <Eye className="mr-2 h-4 w-4 text-muted-foreground" /> View Public Page
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={`/organizer/dashboard/${event.id}`}> {/* Link to event dashboard */}
-                        <BarChart3 className="mr-2 h-4 w-4" /> Event Dashboard
+                      <Link href={`/organizer/dashboard/${event.id}`}> 
+                        <BarChart3 className="mr-2 h-4 w-4 text-muted-foreground" /> Event Dashboard
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={`/organizer/edit-event/${event.id}`}> {/* Link to edit page */}
-                        <Edit className="mr-2 h-4 w-4" /> Edit Event
+                      <Link href={`/organizer/edit-event/${event.id}`}> 
+                        <Edit className="mr-2 h-4 w-4 text-muted-foreground" /> Edit Event
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive">
-                      {/* Add Delete Logic Here */}
                       <Trash2 className="mr-2 h-4 w-4" /> Delete Event
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -378,49 +380,49 @@ function EventCard({ event, isPast = false }: {
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex items-center text-sm">
-                <Calendar className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Calendar className="mr-2.5 h-4 w-4 text-primary flex-shrink-0" />
                 <span>{event.date}</span>
               </div>
               <div className="flex items-center text-sm">
-                <MapPin className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <MapPin className="mr-2.5 h-4 w-4 text-primary flex-shrink-0" />
                 <span>{event.location}</span>
               </div>
               <div className="flex items-center text-sm">
-                <Clock className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Clock className="mr-2.5 h-4 w-4 text-primary flex-shrink-0" />
                 <span>Deadline: {event.registrationDeadline}</span>
               </div>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="rounded-lg bg-muted p-3 text-center">
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Registered</p>
                 <p className="text-xl font-bold">{event.participants.registered}</p>
               </div>
-              <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-3 text-center">
+              <div className="rounded-lg bg-green-100/50 dark:bg-green-900/30 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Approved</p>
-                <p className="text-xl font-bold text-green-700 dark:text-green-300">{event.participants.approved}</p>
+                <p className="text-xl font-bold text-success dark:text-green-300">{event.participants.approved}</p>
               </div>
-              <div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 p-3 text-center">
+              <div className="rounded-lg bg-amber-100/50 dark:bg-amber-900/30 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Pending</p>
-                <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{event.participants.pending}</p>
+                <p className="text-xl font-bold text-warning dark:text-amber-300">{event.participants.pending}</p>
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between items-center mt-auto pt-4"> {/* Ensure alignment */}
+          <CardFooter className="flex justify-between items-center mt-auto pt-4 border-t"> 
             <div className="text-sm">
               <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isPast ? "bg-muted text-muted-foreground" : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"}`}>
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isPast ? "bg-muted text-muted-foreground" : "bg-success/20 text-success dark:bg-green-900 dark:text-green-200"}`}>
                 {event.status}
               </span>
             </div>
             <div className="flex gap-2">
               <Link href={`/organizer/registrations/${event.id}`}>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="rounded-full font-medium">
                   <Users className="mr-2 h-4 w-4" /> Manage Registrations
                 </Button>
               </Link>
               <Link href={`/organizer/dashboard/${event.id}`}>
-                <Button size="sm">
+                <Button size="sm" className="rounded-full font-medium bg-primary hover:bg-primary-dark">
                   <BarChart3 className="mr-2 h-4 w-4" /> Dashboard
                 </Button>
               </Link>

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
 import { useAuth } from "@/components/auth/AuthProvider"
 import UserButton from "@/components/auth/UserButton"
 import { Button } from "@/components/ui/button"
@@ -47,8 +48,26 @@ export function SiteHeader() {
     }
   }, [user, userType]);
 
+  // Animation variants for header items
+  const headerVariants = {
+    hidden: { opacity: 0, y: -10 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        delay: 0.1,
+        duration: 0.5
+      }
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <motion.header 
+      initial="hidden"
+      animate="visible"
+      variants={headerVariants}
+      className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 shadow-sm"
+    >
       <div className="container pl-4 pr-8 mx-auto max-w-7xl flex h-16 items-center justify-between">
         <MainNav />
         <div className="flex items-center gap-4">
@@ -61,20 +80,22 @@ export function SiteHeader() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Link href="/participant/points">
-                    <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 cursor-pointer hover:bg-muted">
-                      <Coins className="h-3.5 w-3.5" />
-                      {pointsLoading ? (
-                        <span className="h-4 w-10 animate-pulse rounded-md bg-muted"></span>
-                      ) : (
-                        <span>{points}</span>
-                      )}
-                    </Badge>
-                  </Link>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Link href="/participant/points">
+                      <Badge variant="outline" className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer hover:bg-muted/80 border border-primary/20 bg-primary/5">
+                        <Coins className="h-3.5 w-3.5 text-primary" />
+                        {pointsLoading ? (
+                          <span className="h-4 w-10 animate-pulse rounded-md bg-muted"></span>
+                        ) : (
+                          <span className="font-medium">{points}</span>
+                        )}
+                      </Badge>
+                    </Link>
+                  </motion.div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Your blockchain points</p>
-                  <p className="text-xs">{pointsLoading ? 'Loading...' : `Value: ₹${((points || 0) * 0.1).toFixed(2)} in discounts`}</p>
+                <TooltipContent className="bg-card border-border shadow-md">
+                  <p className="font-medium">Your blockchain points</p>
+                  <p className="text-xs text-muted-foreground">{pointsLoading ? 'Loading...' : `Value: ₹${((points || 0) * 0.1).toFixed(2)} in discounts`}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -82,30 +103,40 @@ export function SiteHeader() {
 
           {/* Use isLoading to prevent flash of incorrect state */}
           {isLoading ? (
-            <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div> // Placeholder
+            <div className="h-9 w-24 animate-pulse rounded-md bg-muted"></div> // Placeholder
           ) : user ? (
             <>
-              <Link href={dashboardPath}>
-                <Button variant="ghost" size="sm">
-                  Dashboard
-                </Button>
-              </Link>
-              <UserButton /> {/* Use UserButton for logged-in users */}
+              <motion.div whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
+                <Link href={dashboardPath}>
+                  <Button variant="ghost" size="sm" className="font-medium px-4">
+                    Dashboard
+                  </Button>
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <UserButton /> {/* Use UserButton for logged-in users */}
+              </motion.div>
             </>
           ) : (
             <>
-              <Link href="/login">
-                <Button variant="ghost" size="sm">
-                  Log in
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button size="sm">Register</Button>
-              </Link>
+              <motion.div whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" className="font-medium px-4">
+                    Log in
+                  </Button>
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/register">
+                  <Button size="sm" className="font-medium px-4 rounded-full bg-primary hover:bg-primary-dark">
+                    Register
+                  </Button>
+                </Link>
+              </motion.div>
             </>
           )}
         </div>
       </div>
-    </header>
+    </motion.header>
   )
 }

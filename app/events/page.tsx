@@ -3,10 +3,9 @@
 
     import { Button } from "@/components/ui/button";
     import { Input } from "@/components/ui/input";
-    import { SiteHeader } from "@/components/SiteHeader";
     import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
     import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-    import { EventCard } from "@/components/EventCard";
+    import { SiteHeader, EventCard } from "@/app/ClientComponents";
     import { getUpcomingEvents, getLiveEvents, getPastEvents } from "@/lib/services/event-service";
 
     export default async function EventsPage() {

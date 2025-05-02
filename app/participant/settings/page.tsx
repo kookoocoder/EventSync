@@ -529,7 +529,7 @@ export default function ParticipantSettingsPage() {
                                                     <p className="font-medium">AI Innovation Challenge</p>
                                                     <p className="text-sm text-muted-foreground">Apr 15, 2025</p>
                                                 </div>
-                                                <p className="font-medium">$25.00</p>
+                                                <p className="font-medium">₹25.00</p>
                                             </div>
                                              {/* Placeholder if no history */}
                                              {/* <p className="text-sm text-muted-foreground text-center py-4">No billing history found.</p> */}
