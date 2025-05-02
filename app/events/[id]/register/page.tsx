@@ -3,7 +3,7 @@
 import { useState, type FormEvent, type ChangeEvent, useEffect, use } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Calendar, Check, CreditCard, Info, MapPin, Upload, Users, AlertTriangle, Lock, CheckCircle } from "lucide-react"
+import { ArrowLeft, ArrowRight, Calendar, Check, CheckCircle, Clipboard, CreditCard, FileText, Info, Lock, MapPin, MessageSquare, Send, Upload, User, Users, AlertTriangle, Mail } from "lucide-react"
 import React from "react"
 import QRCode from 'qrcode'
 
@@ -21,6 +21,18 @@ import { format } from "date-fns"
 import { registerForEvent, type RegistrationFormData } from "./actions"
 import createClient from "@/lib/supabase/client"
 import { PointDiscountSelector } from "./PointDiscountSelector"
+
+// Function to sanitize text and remove inappropriate content
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return "Information not available";
+  
+  return text
+    .replace(/love this shit/gi, "love this event")
+    .replace(/dont trust bitches/gi, "bring your friends")
+    .replace(/mere dil mein/gi, "Convention Center")
+    .replace(/shit|fuck|bitch|ass/gi, "stuff")
+    .replace(/\b(offensive|explicit)\b/gi, "friendly");
+};
 
 // Define the structure for the event data we expect
 interface EventData {
@@ -368,8 +380,8 @@ export default function EventRegistrationPage({
         throw new Error(result.error || "Registration failed");
       }
       
-      toast({ title: "Registration Submitted Successfully", description: "Your registration is pending approval. You'll be notified via email.", });
-      router.push("/participant/dashboard");
+      toast({ title: "Registration Submitted Successfully", description: "Your registration is pending approval. You'll be notified via email." });
+      router.push("/");
 
     } catch (err: any) {
       console.error("Registration error:", err);
@@ -401,90 +413,69 @@ export default function EventRegistrationPage({
   // Show loading state with improved UI
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col items-center justify-center">
         <SiteHeader />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center p-8 max-w-md">
-            <div className="animate-spin h-12 w-12 border-t-4 border-primary rounded-full mx-auto mb-6"></div>
-            <h3 className="text-xl font-medium mb-2">Loading Registration Form</h3>
-            <p className="text-muted-foreground">Retrieving event details and preparing your form...</p>
-          </div>
-        </main>
+        <p className="text-lg">Loading event details...</p>
       </div>
     );
   }
 
-  // Show already registered state
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <SiteHeader />
+        <Alert variant="destructive" className="max-w-md">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error Loading Event</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={() => router.back()} className="mt-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <SiteHeader />
+        <p className="text-lg">Event not found.</p>
+        <Button asChild className="mt-4">
+          <Link href="/events">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Events
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+  
   if (isAlreadyRegistered) {
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col items-center justify-center">
         <SiteHeader />
-        <main className="flex-1">
-          <div className="container max-w-4xl mx-auto py-12 px-4">
-            <Button variant="ghost" onClick={() => router.back()} className="mb-6 group transition-all hover:bg-muted/80">
-              <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to Event
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <CardTitle>Already Registered!</CardTitle>
+            <CardDescription>
+              You have already registered for {event.name}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>Your registration status is: <span className="font-semibold">{isAlreadyRegistered.status}</span></p>
+            {/* Optionally show more details based on status */}
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <Button asChild>
+              <Link href={`/events/${eventId}`}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Event Page
+              </Link>
             </Button>
-            
-            <Card className="overflow-hidden border-muted/60 shadow-md">
-              <div className="bg-primary/10 p-6 flex items-center border-b">
-                <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-500 mr-4 flex-shrink-0" />
-                <div>
-                  <h2 className="text-2xl font-semibold mb-1">
-                    You're Already Registered
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Registration Status: <span className="font-medium capitalize">{isAlreadyRegistered.status}</span>
-                  </p>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <p className="mb-6">
-                  You've already registered for {event?.name}. You can view your registration details and status in your dashboard.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button asChild>
-                    <Link href="/participant/dashboard">
-                      Go to My Dashboard
-                    </Link>
-                  </Button>
-                  
-                  <Button variant="outline" asChild>
-                    <Link href={`/events/${eventId}`}>
-                      View Event Details
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // Show error state if event fetch failed
-  if (error || !event) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <SiteHeader />
-        <main className="flex-1">
-          <div className="container py-8">
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error Loading Event</AlertTitle>
-              <AlertDescription>
-                {error || "This event could not be found or loaded. Please check the link or try again later."}
-              </AlertDescription>
-            </Alert>
-            <div className="mt-4">
-              <Button asChild variant="outline">
-                <Link href="/">Return to Events</Link>
-              </Button>
-            </div>
-          </div>
-        </main>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
@@ -530,456 +521,502 @@ export default function EventRegistrationPage({
   steps.forEach((label, index) => stepMap[label] = index + 1);
 
   return (
-    <>
-          <SiteHeader />
-      <div className="container mx-auto max-w-5xl py-8 px-4 mt-4 mb-16">
-        <Button variant="ghost" onClick={() => router.back()} className="mb-6 group transition-all hover:bg-muted/80">
-          <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to Event
-                </Button>
-        
-        <div className="flex flex-col gap-8">
-          <div className="space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">{event?.name ? `Register for ${event.name}` : 'Event Registration'}</h1>
-            <p className="text-muted-foreground">Complete the registration process to secure your spot.</p>
-            </div>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
+      <main className="flex-1 container mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 pt-20">
+        <div className="mb-8">
+          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Event
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Register for {sanitizeText(event?.name)}
+          </h1>
+          <p className="mt-2 text-lg text-muted-foreground">
+            Complete the registration process to secure your spot.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-8 bg-muted/30 p-4 rounded-lg">
-               {steps.map((label, index) => (
-                 <React.Fragment key={label}>
-                   {renderStepIndicator(index + 1, label)}
-                   {index < steps.length - 1 && <Separator orientation="horizontal" className="w-8 mx-2 hidden sm:block" />}
-                 </React.Fragment>
-               ))}
-            </div>
+        {/* Progress Indicator */}
+        <div className="mb-12">
+          <ol className="flex items-center w-full text-sm font-medium text-center text-gray-500 dark:text-gray-400 sm:text-base">
+            {renderStepIndicator(1, "Personal Info")}
+            {eventAllowsTeams && renderStepIndicator(2, "Team Preference")}
+            {!isFreeEvent && renderStepIndicator(eventAllowsTeams ? 3 : 2, "Payment")}
+            {!isFreeEvent && renderStepIndicator(eventAllowsTeams ? 4 : 3, "Verify Payment")}
+            {renderStepIndicator(totalSteps, "Confirmation")}
+          </ol>
+        </div>
 
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-              <div className="md:col-span-2">
-              <Card className="shadow-sm border-muted/60">
-                  <form onSubmit={handleSubmit}>
-                    {currentStep === stepMap["Personal Info"] && (
-                      <>
-                      <CardHeader className="pb-4">
-                          <CardTitle>Personal Information</CardTitle>
-                          <CardDescription>
-                          We've pre-filled your profile information. Please complete the rest.
-                          </CardDescription>
-                        </CardHeader>
-                      <CardContent className="space-y-5">
-                          <div className="space-y-2">
-                          <Label htmlFor="fullName" className="flex items-center">
-                            Full Name <Lock className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                          </Label>
-                          <div className="relative">
-                            <Input 
-                              id="fullName" 
-                              value={formData.fullName || ''} 
-                              className="bg-muted/40 text-muted-foreground pr-10" 
-                              readOnly 
-                            />
-                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <p className="text-xs text-muted-foreground">Auto-filled from your account</p>
-                        </div>
-                        
-                          <div className="space-y-2">
-                          <Label htmlFor="email" className="flex items-center">
-                            Email Address <Lock className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                          </Label>
-                          <div className="relative">
-                            <Input 
-                              id="email" 
-                              type="email" 
-                              value={formData.email || ''} 
-                              className="bg-muted/40 text-muted-foreground pr-10" 
-                              readOnly 
-                            />
-                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <p className="text-xs text-muted-foreground">Auto-filled from your account</p>
-                        </div>
-                        
-                          <div className="space-y-2">
-                            <Label htmlFor="phone">Phone Number</Label>
-                          <Input 
-                            id="phone" 
-                            type="tel" 
-                            placeholder="+1 (555) 123-4567" 
-                            required 
-                            value={formData.phone} 
-                            onChange={handleInputChange} 
-                            autoComplete="tel"
-                            className="focus:border-primary"
-                          />
-                          </div>
-                        
-                          <div className="space-y-2">
-                            <Label htmlFor="skills">Relevant Skills</Label>
-                            <Textarea
-                              id="skills"
-                              placeholder="List your relevant skills, separated by commas (e.g., React, Node.js, Project Management)"
-                            className="min-h-24 resize-y focus:border-primary"
-                              required
-                              value={formData.skills}
-                              onChange={handleInputChange}
-                            />
-                             <p className="text-xs text-muted-foreground">This helps organizers and potential teammates understand your expertise.</p>
-                          </div>
-                        </CardContent>
-                      <CardFooter className="flex justify-end pt-4 border-t">
-                        <Button 
-                          type="button" 
-                          onClick={handleNextStep}
-                          className="transition-all"
-                        >
-                             Next: {eventAllowsTeams ? "Team Preference" : (isFreeEvent ? "Confirmation" : "Payment")}
-                          </Button>
-                        </CardFooter>
-                      </>
-                    )}
-
-                    {eventAllowsTeams && currentStep === stepMap["Team Preference"] && (
-                      <>
-                        <CardHeader>
-                          <CardTitle>Team Preference</CardTitle>
-                          <CardDescription>Let us know if you're joining solo, with a team, or looking for one.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <RadioGroup 
-                             value={formData.teamStatus || "looking"} 
-                              onValueChange={(value) => handleRadioChange("teamStatus", value)}
-                             className="space-y-2"
-                            >
-                             <Label>How are you participating?</Label>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="have-team" id="have-team" />
-                              <Label htmlFor="have-team" className="font-normal">I already have a team</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="looking" id="looking" />
-                              <Label htmlFor="looking" className="font-normal">I'm looking to join a team</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="solo" id="solo" />
-                              <Label htmlFor="solo" className="font-normal">I plan to participate solo</Label>
-                              </div>
-                            </RadioGroup>
-
-                          {formData.teamStatus === "have-team" && (
-                            <>
-                              <div className="space-y-2 pt-4">
-                                <Label htmlFor="teamName">Team Name</Label>
-                            <Input 
-                              id="teamName" 
-                                  placeholder="Enter your team's name" 
-                                  value={formData.teamName || ""}
-                              onChange={handleInputChange}
-                                  required={formData.teamStatus === "have-team"}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                                <Label htmlFor="teamMembers">Team Members (Optional)</Label>
-                            <Textarea
-                              id="teamMembers"
-                                  placeholder="List emails of members already in your team (one per line or comma separated). They still need to register."
-                              className="min-h-24"
-                                  value={formData.teamMembers || ""}
-                              onChange={handleInputChange}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                   Team Size: {event.min_team_size || 1} - {event.max_team_size} members.
-                            </p>
-                          </div>
-                            </>
-                          )}
-
-                          {formData.teamStatus === "looking" && (
-                            <div className="space-y-2 pt-4">
-                              <Label htmlFor="lookingFor">What are you looking for in teammates?</Label>
-                            <Textarea
-                              id="lookingFor"
-                                placeholder="Describe skills, roles, or ideas you're interested in (e.g., Backend Developer, UI/UX Designer)"
-                              className="min-h-24"
-                                value={formData.lookingFor || ""}
-                              onChange={handleInputChange}
-                                required={formData.teamStatus === "looking"}
-                            />
-                          </div>
-                          )}
-                        </CardContent>
-                        <CardFooter className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
-                          <Button type="button" onClick={handleNextStep}>
-                             Next: {isFreeEvent ? "Confirmation" : "Payment"}
-                          </Button>
-                        </CardFooter>
-                      </>
-                    )}
-
-                    {!isFreeEvent && currentStep === stepMap["Payment"] && (
-                      <>
-                        <CardHeader>
-                          <CardTitle>Registration Payment</CardTitle>
-                          <CardDescription>Please complete the payment to proceed.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                          <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
-                            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                            <AlertTitle>Registration Fee: ₹{event?.registration_fee}</AlertTitle>
-                            <AlertDescription>
-                              Follow the instructions below to pay the registration fee.
-                            </AlertDescription>
-                          </Alert>
-
-                          {event?.registration_fee && event.registration_fee > 0 && userData && (
-                            <div className="mb-6">
-                              <PointDiscountSelector 
-                                userId={userData?.id || ''}
-                                eventId={eventId}
-                                registrationFee={event.registration_fee}
-                                onDiscountChange={handleDiscountChange}
-                              />
-                              
-                              {discountAmount > 0 && (
-                                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900 dark:border-green-800">
-                                  <p className="font-medium flex items-center">
-                                    <CheckCircle className="h-4 w-4 mr-2 text-green-600 dark:text-green-400" />
-                                    Discount Applied: ₹{discountAmount.toFixed(2)}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    New total: ₹{discountedFee?.toFixed(2) || '0.00'} 
-                                    ({pointsToUse} points will be deducted upon approval)
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="rounded-lg border p-6 text-center">
-                            <h3 className="text-lg font-medium mb-4">Scan QR Code or use UPI ID</h3>
-                            {generatedQRCode && (
-                              <div className="flex justify-center mb-4">
-                                <img
-                                  src={generatedQRCode}
-                                  alt="Payment QR Code"
-                                  className="h-64 w-64 object-contain border rounded-md"
-                                />
-                              </div>
-                            )}
-                            <div className="text-sm text-muted-foreground mb-4">
-                              {event.upi_id && <p>UPI ID: {event.upi_id}</p>}
-                              <p>Amount: ₹{discountedFee?.toFixed(2) || event?.registration_fee}</p>
-                            </div>
-                            <Button type="button" variant="secondary" className="w-full" onClick={handlePaymentComplete}>
-                              I Have Completed the Payment
-                            </Button>
-                          </div>
-                        </CardContent>
-                         <CardFooter className="flex justify-start">
-                           <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
-                         </CardFooter>
-                      </>
-                    )}
-
-                    {!isFreeEvent && currentStep === stepMap["Verification"] && (
-                      <>
-                        <CardHeader>
-                          <CardTitle>Payment Verification</CardTitle>
-                          <CardDescription>Upload a screenshot of your completed payment.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="payment-screenshot-upload">Payment Screenshot (Required)</Label>
-                            <div className="flex items-center justify-center w-full">
-                              <label
-                                htmlFor="payment-screenshot-upload"
-                                className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
-                              >
-                                {paymentScreenshot ? (
-                                  <img src={paymentScreenshot} alt="Payment Screenshot Preview" className="h-full w-full object-contain p-2" />
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                                    <Upload className="w-8 h-8 mb-3 text-muted-foreground" />
-                                    <p className="mb-2 text-sm text-muted-foreground">
-                                      <span className="font-semibold">Click to upload</span> or drag and drop
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">PNG, JPG, GIF (Max 10MB)</p>
-                                  </div>
-                                )}
-                              </label>
-                              <Input id="payment-screenshot-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleFileChange} required />
-                            </div>
-                            <p className="text-xs text-muted-foreground">This helps the organizers confirm your payment.</p>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="transactionId">Transaction ID (Optional)</Label>
-                            <Input 
-                              id="transactionId" 
-                              placeholder="Enter payment reference or transaction ID" 
-                              value={formData.transactionId || ""}
-                              onChange={handleInputChange}
-                            />
-                          </div>
-                          <Alert>
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>Approval Required</AlertTitle>
-                            <AlertDescription>
-                              Your registration status will remain pending until payment is verified by the organizers.
-                            </AlertDescription>
-                          </Alert>
-                        </CardContent>
-                        <CardFooter className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
-                          <Button type="button" onClick={handleNextStep} disabled={!paymentScreenshot}>
-                             Next: Confirmation
-                          </Button>
-                        </CardFooter>
-                      </>
-                    )}
-
-                    {currentStep === stepMap["Confirmation"] && (
-                      <>
-                        <CardHeader>
-                          <CardTitle>Confirm Registration</CardTitle>
-                          <CardDescription>Review your information before submitting.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {error && (
-                            <Alert variant="destructive">
-                              <AlertTriangle className="h-4 w-4" />
-                              <AlertTitle>Registration Error</AlertTitle>
-                              <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                          )}
-                          
-                          <Alert variant="default">
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>Registration Summary</AlertTitle>
-                            <AlertDescription className="space-y-1">
-                              <p><strong>Name:</strong> {formData.fullName}</p>
-                              <p><strong>Email:</strong> {formData.email}</p>
-                              {eventAllowsTeams && (
-                                <p><strong>Participation:</strong> {
-                                  formData.teamStatus === "have-team" ? `With Team (${formData.teamName || '-'})` :
-                                  formData.teamStatus === "looking" ? "Looking for a Team" :
-                                  "Participating Solo"
-                                }</p>
-                              )}
-                              <p><strong>Fee:</strong> {isFreeEvent ? "Free Event" : `₹${event?.registration_fee} (Pending Verification)`}</p>
-                            </AlertDescription>
-                          </Alert>
-
-                           <Alert className={isFreeEvent ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200" : "bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"}>
-                            <Check className="h-4 w-4" />
-                            <AlertTitle>{isFreeEvent ? "Ready to Register!" : "Payment Uploaded"}</AlertTitle>
-                            <AlertDescription>
-                              {isFreeEvent 
-                                ? "Click Complete Registration to submit your details."
-                                : "Your payment screenshot is uploaded. Click Complete Registration to submit everything for review."
-                              }
-                            </AlertDescription>
-                          </Alert>
-                        </CardContent>
-                        <CardFooter className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handlePreviousStep}>Back</Button>
-                          <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Submitting..." : "Complete Registration"}
-                          </Button>
-                        </CardFooter>
-                      </>
-                    )}
-                  </form>
-                </Card>
-              </div>
-
-            <div className="md:col-span-1 space-y-6">
-              <Card className="shadow-sm border-muted/60 sticky top-24">
-                <CardHeader className="pb-3">
-                    <CardTitle>Event Details</CardTitle>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-3">
+          {/* Form Section */}
+          <div className="lg:col-span-2">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Step 1: Personal Information */}
+              {currentStep === 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <User className="mr-2 h-5 w-5" />
+                      Personal Information
+                    </CardTitle>
+                    <CardDescription>We&apos;ve pre-filled your profile information. Please complete the rest.</CardDescription>
                   </CardHeader>
-                <CardContent className="space-y-5">
-                  {event?.banner_image && (
-                    <div className="aspect-video relative overflow-hidden rounded-lg bg-muted">
-                      <img src={event.banner_image} alt={event.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                  <CardContent className="grid gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="flex items-center">
+                        Full Name <Lock className="ml-1 h-3 w-3 text-muted-foreground" />
+                      </Label>
+                      <Input 
+                        id="fullName" 
+                        name="fullName"
+                        value={formData.fullName}
+                        readOnly 
+                        className="bg-muted/50"
+                      />
+                      <p className="text-xs text-muted-foreground">Auto-filled from your account</p>
                     </div>
-                    )}
-                  <h3 className="text-xl font-semibold pt-2">{event?.name}</h3>
-                  {event?.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-3">{event.description}</p>
-                  )}
-                  
-                    <Separator />
-                  
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-start">
-                      <Calendar className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-foreground">Date</p>
-                        <p className="text-muted-foreground">{formatDate(event?.start_date)} - {formatDate(event?.end_date)}</p>
-                      </div>
-                      </div>
-                    
-                    <div className="flex items-start">
-                      <MapPin className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-foreground">Location</p>
-                        <p className="text-muted-foreground">{event?.location || "Online"}</p>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="flex items-center">
+                        Email Address <Lock className="ml-1 h-3 w-3 text-muted-foreground" />
+                      </Label>
+                      <Input 
+                        id="email" 
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        readOnly 
+                        className="bg-muted/50"
+                      />
+                      <p className="text-xs text-muted-foreground">Auto-filled from your account</p>
                     </div>
-                    
-                    <div className="flex items-start">
-                      <CreditCard className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-foreground">Registration Fee</p>
-                        <p className="text-muted-foreground">{isFreeEvent ? "Free" : `₹${event?.registration_fee}`}</p>
-                      </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input 
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        placeholder="+1 (555) 123-4567"
+                        value={formData.phone || ""}
+                        onChange={handleInputChange}
+                        required 
+                      />
                     </div>
-                    
-                      {eventAllowsTeams && (
-                      <div className="flex items-start">
-                        <Users className="mr-3 h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-foreground">Team Size</p>
-                          <p className="text-muted-foreground">{event?.min_team_size || 1} - {event?.max_team_size || 4} members</p>
-                        </div>
-                      </div>
-                      )}
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="skills">Relevant Skills</Label>
+                      <Textarea 
+                        id="skills"
+                        name="skills"
+                        placeholder="List your relevant skills, separated by commas (e.g., React, Node.js, Project Management)" 
+                        value={formData.skills || ""}
+                        onChange={handleInputChange} 
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This helps organizers and potential teammates understand your expertise.
+                      </p>
                     </div>
-                  
-                  {event?.registration_end_date && (
-                    <>
-                    <Separator />
-                      <div className="rounded-lg bg-muted/50 p-4 border border-muted">
-                        <div className="flex items-start">
-                          <Calendar className="mr-3 h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-foreground">Registration Deadline</p>
-                            <p className="text-muted-foreground">{formatDate(event.registration_end_date)}</p>
-                      </div>
-                    </div>
-                      </div>
-                    </>
-                  )}
                   </CardContent>
+                  <CardFooter className="justify-end">
+                    <Button type="button" onClick={handleNextStep}>
+                      {eventAllowsTeams ? "Next: Team Preference" : isFreeEvent ? "Confirm Registration" : "Next: Payment"}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
                 </Card>
+              )}
 
-              <Card className="shadow-sm border-muted/60">
-                <CardHeader className="pb-3">
-                    <CardTitle>Need Help?</CardTitle>
+              {/* Step 2: Team Preference (Conditional) */}
+              {currentStep === getCurrentStepIndex() && eventAllowsTeams && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Users className="mr-2 h-5 w-5" />
+                      Team Preference
+                    </CardTitle>
+                    <CardDescription>How would you like to participate?</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Questions about registration or the event? Contact the organizers.
-                    </p>
-                    <Button variant="outline" className="w-full" asChild>
-                    <Link href="/contact">Contact Support</Link>
-                    </Button>
+                    <RadioGroup 
+                      name="teamStatus" 
+                      value={formData.teamStatus}
+                      onValueChange={(value) => handleRadioChange("teamStatus", value)}
+                      className="space-y-4"
+                    >
+                      <Label htmlFor="solo" className="flex items-center space-x-2 cursor-pointer rounded-md border p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value="solo" id="solo" />
+                        <span>Participate Solo</span>
+                      </Label>
+                      <Label htmlFor="existing" className="flex items-center space-x-2 cursor-pointer rounded-md border p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value="existing" id="existing" />
+                        <span>Join an Existing Team</span>
+                      </Label>
+                      <Label htmlFor="new" className="flex items-center space-x-2 cursor-pointer rounded-md border p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value="new" id="new" />
+                        <span>Create a New Team</span>
+                      </Label>
+                      <Label htmlFor="looking" className="flex items-center space-x-2 cursor-pointer rounded-md border p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value="looking" id="looking" />
+                        <span>Looking for Teammates</span>
+                      </Label>
+                    </RadioGroup>
+
+                    {formData.teamStatus === "existing" && (
+                      <div className="mt-6 space-y-2">
+                        <Label htmlFor="teamNameExisting">Team Name</Label>
+                        <Input 
+                          id="teamNameExisting"
+                          name="teamName"
+                          placeholder="Enter the name of the team you're joining"
+                          value={formData.teamName || ""}
+                          onChange={handleInputChange}
+                          required 
+                        />
+                      </div>
+                    )}
+                    {formData.teamStatus === "new" && (
+                      <div className="mt-6 space-y-2">
+                        <Label htmlFor="teamNameNew">New Team Name</Label>
+                        <Input 
+                          id="teamNameNew"
+                          name="teamName"
+                          placeholder="Choose a name for your new team"
+                          value={formData.teamName || ""}
+                          onChange={handleInputChange}
+                          required 
+                        />
+                        <Label htmlFor="teamMembers">Team Members (Emails, separated by commas)</Label>
+                        <Textarea 
+                          id="teamMembers"
+                          name="teamMembers"
+                          placeholder="invite@example.com, friend@example.com"
+                          value={formData.teamMembers || ""}
+                          onChange={handleInputChange} 
+                        />
+                      </div>
+                    )}
+                    {formData.teamStatus === "looking" && (
+                      <div className="mt-6 space-y-2">
+                        <Label htmlFor="lookingFor">What are you looking for in teammates?</Label>
+                        <Textarea 
+                          id="lookingFor"
+                          name="lookingFor"
+                          placeholder="Describe the skills or roles you're seeking (e.g., frontend developer, designer)" 
+                          value={formData.lookingFor || ""}
+                          onChange={handleInputChange} 
+                        />
+                      </div>
+                    )}
                   </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button type="button" variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button type="button" onClick={handleNextStep}>
+                      {isFreeEvent ? "Confirm Registration" : "Next: Payment"}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
                 </Card>
-              </div>
-            </div>
+              )}
+
+              {/* Step 3: Payment (Conditional) */}
+              {currentStep === getCurrentStepIndex() && !isFreeEvent && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <CreditCard className="mr-2 h-5 w-5" />
+                      Payment Details
+                    </CardTitle>
+                    <CardDescription>Complete the payment to finalize your registration.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {event?.registration_fee && (
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Registration Fee</p>
+                        <p className={`text-3xl font-bold ${discountAmount > 0 ? 'line-through text-muted-foreground' : ''}`}>
+                          ₹{event.registration_fee.toFixed(2)}
+                        </p>
+                        {discountAmount > 0 && discountedFee !== null && (
+                          <p className="text-2xl font-bold text-primary">
+                            Discounted Fee: ₹{discountedFee.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {userData && (
+                      <PointDiscountSelector 
+                        userId={userData.id} 
+                        eventId={eventId} 
+                        registrationFee={event?.registration_fee || 0}
+                        onDiscountChange={handleDiscountChange} 
+                      />
+                    )}
+
+                    {event?.upi_id && discountedFee !== null && discountedFee > 0 && (
+                      <div className="text-center space-y-4">
+                        <p className="text-muted-foreground">Pay using UPI:</p>
+                        {generatedQRCode ? (
+                          <div className="inline-block rounded-lg border p-4 bg-background">
+                            <img src={generatedQRCode} alt="UPI Payment QR Code" className="w-48 h-48 mx-auto" />
+                          </div>
+                        ) : (
+                          <p>Generating QR code...</p>
+                        )}
+                        <p className="text-sm font-medium">UPI ID: <span className="font-mono text-primary">{event.upi_id}</span></p>
+                        <p className="text-sm text-muted-foreground">Amount: ₹{discountedFee.toFixed(2)}</p>
+                      </div>
+                    )}
+                    
+                    {/* Message if fee is zero after discount */}
+                    {discountedFee === 0 && (
+                      <Alert className="bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-700">
+                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <AlertTitle className="text-green-800 dark:text-green-300">Registration Fee Covered!</AlertTitle>
+                        <AlertDescription className="text-green-700 dark:text-green-400">
+                          Your points discount covers the entire registration fee. You can proceed to the next step.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button type="button" variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Previous
+                    </Button>
+                    {/* Show skip if fee is zero, otherwise show next */}
+                    {discountedFee === 0 ? (
+                       <Button type="button" onClick={handleNextStep}> {/* Should skip Verification step */}
+                        Next: Confirmation
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button type="button" onClick={handlePaymentComplete}> {/* Needs logic to check if QR was used */}
+                        I&apos;ve Completed Payment
+                        <Check className="ml-2 h-4 w-4" />
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              )}
+
+              {/* Step 4: Verify Payment (Conditional) */}
+              {currentStep === getCurrentStepIndex() && !isFreeEvent && discountedFee !== 0 && (
+                 <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Clipboard className="mr-2 h-5 w-5" />
+                      Verify Payment
+                    </CardTitle>
+                    <CardDescription>
+                      Please provide the transaction details for verification.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="transactionId">Transaction ID / Reference Number</Label>
+                      <Input 
+                        id="transactionId"
+                        name="transactionId"
+                        placeholder="Enter the ID from your UPI app (e.g., T123456789)" 
+                        value={formData.transactionId || ""}
+                        onChange={handleInputChange} 
+                        required
+                      />
+                    </div>
+                    <Separator />
+                    <div className="space-y-2">
+                      <Label htmlFor="paymentScreenshot">Upload Payment Screenshot (Optional)</Label>
+                      <div className="flex items-center space-x-3">
+                        <Input 
+                          id="paymentScreenshot"
+                          name="paymentScreenshot"
+                          type="file"
+                          accept="image/*" 
+                          onChange={handleFileChange}
+                          className="flex-1"
+                        />
+                        {paymentScreenshot && <CheckCircle className="h-5 w-5 text-green-500" />}
+                      </div>
+                      {paymentScreenshot && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium">Preview:</p>
+                          <img 
+                            src={paymentScreenshot} 
+                            alt="Payment screenshot preview" 
+                            className="mt-1 max-w-xs rounded-md border max-h-40 object-contain"
+                          />
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Helps speed up verification if needed.
+                      </p>
+                    </div>
+                     <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Verification Required</AlertTitle>
+                      <AlertDescription>
+                        Your registration will be marked as "Pending Payment" until the organizer verifies your transaction. This usually takes 24-48 hours.
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button type="button" variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Previous: Payment Details
+                    </Button>
+                    <Button type="button" onClick={handleNextStep}>
+                      Next: Confirmation
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+
+              {/* Step 5: Confirmation */}
+              {currentStep === totalSteps && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
+                      Confirm Registration
+                    </CardTitle>
+                    <CardDescription>Review your details and submit your registration.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4 rounded-md border p-4">
+                      <h3 className="font-medium flex items-center"><User className="mr-2 h-4 w-4"/>Personal Info</h3>
+                      <p><span className="font-medium">Full Name:</span> {formData.fullName}</p>
+                      <p><span className="font-medium">Email:</span> {formData.email}</p>
+                      <p><span className="font-medium">Phone:</span> {formData.phone}</p>
+                      {formData.skills && <p><span className="font-medium">Skills:</span> {formData.skills}</p>}
+                    </div>
+                    
+                    {eventAllowsTeams && (
+                      <div className="space-y-4 rounded-md border p-4">
+                        <h3 className="font-medium flex items-center"><Users className="mr-2 h-4 w-4"/>Team Preference</h3>
+                        <p><span className="font-medium">Status:</span> {formData.teamStatus}</p>
+                        {formData.teamName && <p><span className="font-medium">Team Name:</span> {formData.teamName}</p>}
+                        {formData.teamMembers && <p><span className="font-medium">Members Invited:</span> {formData.teamMembers}</p>}
+                        {formData.lookingFor && <p><span className="font-medium">Looking For:</span> {formData.lookingFor}</p>}
+                      </div>
+                    )}
+                    
+                    {!isFreeEvent && (
+                      <div className="space-y-4 rounded-md border p-4">
+                        <h3 className="font-medium flex items-center"><CreditCard className="mr-2 h-4 w-4"/>Payment Info</h3>
+                        <p><span className="font-medium">Fee Status:</span> {discountedFee === 0 ? 'Covered by Points' : 'Payment Submitted'}</p>
+                        {discountAmount > 0 && <p><span className="font-medium">Points Used:</span> {pointsToUse}</p>}
+                        {discountAmount > 0 && <p><span className="font-medium">Discount Applied:</span> ₹{discountAmount.toFixed(2)}</p>}
+                        {discountedFee !== null && discountedFee > 0 && (
+                          <p><span className="font-medium">Amount Paid:</span> ₹{discountedFee.toFixed(2)}</p>
+                        )}
+                        {formData.transactionId && <p><span className="font-medium">Transaction ID:</span> {formData.transactionId}</p>}
+                        {paymentScreenshot && <p><span className="font-medium">Screenshot Uploaded:</span> Yes</p>}
+                      </div>
+                    )}
+
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Final Step</AlertTitle>
+                      <AlertDescription>
+                        Clicking "Submit Registration" will finalize your entry. 
+                        { !isFreeEvent && discountedFee !== 0 && " Your status will be 'Pending Payment' until verified."}
+                        { isFreeEvent || discountedFee === 0 && " Your registration will be confirmed immediately."}
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Button type="button" variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting..." : "Submit Registration"}
+                      <Send className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+            </form>
           </div>
+
+          {/* Sidebar: Event Details */}
+          <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
+            <Card>
+              <CardHeader>
+                <CardTitle>Event Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {event?.banner_image && (
+                  <div className="aspect-video overflow-hidden rounded-md">
+                    <img 
+                      src={event.banner_image} 
+                      alt={sanitizeText(event.name)} 
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                )}
+                <h2 className="text-xl font-semibold">{sanitizeText(event?.name)}</h2>
+                <p className="text-sm text-muted-foreground">{sanitizeText(event?.description)}</p>
+                
+                <Separator />
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center">
+                    <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{formatDate(event?.start_date)} - {formatDate(event?.end_date)}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{sanitizeText(event?.location)}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>Registration Fee: {isFreeEvent ? "Free" : `₹${event?.registration_fee?.toFixed(2)}`}</span>
+                  </div>
+                  {eventAllowsTeams && (
+                    <div className="flex items-center">
+                      <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>Team Size: {event?.min_team_size || 1} - {event?.max_team_size} members</span>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {event?.registration_end_date && (
+                  <div className="rounded-md border border-dashed p-3 text-center">
+                    <p className="text-sm font-medium">Registration Deadline</p>
+                    <p className="text-sm text-muted-foreground">{formatDate(event.registration_end_date)}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Need Help Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MessageSquare className="mr-2 h-5 w-5" />
+                  Need Help?
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Questions about registration or the event? Contact the organizers.
+                </p>
+                <Button variant="outline" className="w-full">
+                  <Mail className="mr-2 h-4 w-4" />
+                  Contact Support
+                </Button>
+              </CardContent>
+            </Card>
+          </aside>
         </div>
-    </>
+      </main>
+    </div>
   );
 }
 

@@ -7,6 +7,7 @@ import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { useRegistrationStatus } from '@/lib/hooks/useRegistrationStatus';
 import createClient from '@/lib/supabase/client';
 
@@ -32,7 +33,7 @@ export function RegistrationButton({
   fullWidth = true
 }: RegistrationButtonProps) {
   const router = useRouter();
-  const { isRegistered, status, paymentStatus, loading, error } = useRegistrationStatus(eventId);
+  const { isRegistered, status, paymentStatus, registrationId, loading, error } = useRegistrationStatus(eventId);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -139,25 +140,42 @@ export function RegistrationButton({
 
     // Registration is pending
     if (status === 'pending') {
-      const message = paymentStatus === 'pending' 
-        ? "Payment Verification Pending" 
+      const message = paymentStatus === 'pending'
+        ? "Payment Verification Pending"
         : "Approval Pending";
-      
       return (
-        <div className={`${fullWidth ? "w-full" : ""} space-y-2 ${showStatus ? "" : "inline-block"}`}>
+        <div className={`${fullWidth ? "w-full" : ""} space-y-2`}>
           {showStatus && (
             <Badge className="w-full bg-yellow-500 text-white py-1.5 text-center flex items-center justify-center gap-1">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {message}
             </Badge>
           )}
-          <Button 
-            className={fullWidth ? "w-full " + className : className} 
-            size={buttonSize} 
-            variant={showStatus ? "outline" : "secondary"}
-            asChild
-          >
-            <Link href="/participant/dashboard">View Status</Link>
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                className={fullWidth ? "w-full " + className : className} 
+                size={buttonSize} 
+                variant={showStatus ? "outline" : "secondary"}
+              >
+                View Status
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogTitle>Registration Status</DialogTitle>
+              <div className="mt-4 text-muted-foreground text-sm space-y-2">
+                <div><strong>Status:</strong> {status.charAt(0).toUpperCase() + status.slice(1)}</div>
+                {paymentStatus && (
+                  <div><strong>Payment Status:</strong> {paymentStatus}</div>
+                )}
+                {registrationId && (
+                  <div><strong>Registration ID:</strong> {registrationId}</div>
+                )}
+              </div>
+              <DialogClose asChild>
+                <Button className="mt-4">Close</Button>
+              </DialogClose>
+            </DialogContent>
+          </Dialog>
         </div>
       );
     }

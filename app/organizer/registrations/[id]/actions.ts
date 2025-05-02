@@ -16,6 +16,12 @@ export interface RegistrationUI {
   teamId: string | null;
   rejection_reason?: string | null;
   paymentScreenshot?: string | null;
+  skills?: string | null;
+  contactNo?: string | null;
+  teamName?: string | null;
+  teamDetail?: string | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
 }
 
 /**
@@ -65,6 +71,12 @@ export async function fetchEventRegistrations(eventId: string) {
             r.payment_status,
             r.rejection_reason,
             r.payment_screenshot,
+            r.skills,
+            r.contact_no,
+            r.team_name,
+            r.team_detail,
+            r.approved_at,
+            r.approved_by,
             r.created_at,
             p.name as participant_name,
             p.email as participant_email,
@@ -101,7 +113,13 @@ export async function fetchEventRegistrations(eventId: string) {
         paymentStatus: row.payment_status,
         teamId: row.team_id,
         rejection_reason: row.rejection_reason,
-        paymentScreenshot: row.payment_screenshot
+        paymentScreenshot: row.payment_screenshot,
+        skills: row.skills,
+        contactNo: row.contact_no,
+        teamName: row.team_name,
+        teamDetail: row.team_detail,
+        approvedAt: row.approved_at,
+        approvedBy: row.approved_by
       }));
     } else {
       // Fall back to separate queries
@@ -151,7 +169,13 @@ export async function fetchEventRegistrations(eventId: string) {
             paymentStatus: reg.payment_status,
             teamId: reg.team_id,
             rejection_reason: reg.rejection_reason,
-            paymentScreenshot: reg.payment_screenshot
+            paymentScreenshot: reg.payment_screenshot,
+            skills: reg.skills,
+            contactNo: reg.contact_no,
+            teamName: reg.team_name,
+            teamDetail: reg.team_detail,
+            approvedAt: reg.approved_at,
+            approvedBy: reg.approved_by
         };
         });
       }
@@ -266,7 +290,9 @@ export async function approveRegistrationAction(eventId: string, registrationId:
       .from("registrations")
       .update({ 
         status: "approved",
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        approved_at: new Date().toISOString(),
+        approved_by: user.id
       })
       .eq("id", resolvedRegistrationId)
       .select();

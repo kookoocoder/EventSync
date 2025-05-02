@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RegistrationButton } from "@/components/RegistrationButton";
+import { TextSanitizer } from "@/components/TextSanitizer";
 
 // Updated interface to match Supabase schema
 export interface DBEvent {
@@ -163,7 +164,9 @@ export function EventCard({ event, isLive = false, isPast = false, isSpecialized
         <div className="flex flex-col flex-1">
           <CardHeader className="px-5 py-4">
             <CardTitle className="font-['Outfit'] text-xl line-clamp-1">{event.name}</CardTitle>
-            <CardDescription className="line-clamp-2 mt-1">{event.description}</CardDescription>
+            <CardDescription className="line-clamp-2 mt-1">
+              <TextSanitizer text={event.description} fallback="No description provided" />
+            </CardDescription>
           </CardHeader>
           <CardContent className="px-5 py-2 flex-1">
             <div className="flex flex-col space-y-2.5 text-sm">
@@ -173,7 +176,7 @@ export function EventCard({ event, isLive = false, isPast = false, isSpecialized
               </div>
               <div className="flex items-center text-muted-foreground">
                 <MapPin className="mr-2.5 h-4 w-4 text-primary" />
-                <span>{event.location}</span>
+                <TextSanitizer text={event.location} fallback="Location not specified" />
               </div>
               {event.current_participants !== null && (
                 <div className="flex items-center text-muted-foreground">

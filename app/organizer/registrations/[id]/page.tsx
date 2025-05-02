@@ -56,6 +56,10 @@ export default async function RegistrationsPage({ params }: RegistrationsPagePro
             r.registration_type,
             r.status,
             r.payment_status,
+            r.skills,
+            r.contact_no,
+            r.team_name,
+            r.team_detail,
             r.created_at,
             p.name as participant_name,
             p.email as participant_email,
@@ -89,7 +93,11 @@ export default async function RegistrationsPage({ params }: RegistrationsPagePro
         status: row.status as RegistrationUI['status'],
         registrationType: row.registration_type,
         paymentStatus: row.payment_status,
-        teamId: row.team_id
+        teamId: row.team_id,
+        skills: row.skills,
+        contactNo: row.contact_no,
+        teamName: row.team_name,
+        teamDetail: row.team_detail
       }));
     } else {
       // Fall back to separate queries
@@ -144,7 +152,11 @@ export default async function RegistrationsPage({ params }: RegistrationsPagePro
             status: reg.status as RegistrationUI['status'],
             registrationType: reg.registration_type,
             paymentStatus: reg.payment_status,
-            teamId: reg.team_id
+            teamId: reg.team_id,
+            skills: reg.skills,
+            contactNo: reg.contact_no,
+            teamName: reg.team_name,
+            teamDetail: reg.team_detail
           };
         });
       } else {

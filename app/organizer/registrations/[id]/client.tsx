@@ -582,6 +582,26 @@ export function RegistrationsClient({
                        <p>{selectedRegistration.teamId}</p>
                      </div>
                    )}
+                   <div>
+                     <p className="text-sm text-muted-foreground">Contact No.</p>
+                     <p>{selectedRegistration.contactNo || 'N/A'}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm text-muted-foreground">Skills</p>
+                     <p>{selectedRegistration.skills || 'N/A'}</p>
+                   </div>
+                   {selectedRegistration.teamName && (
+                     <div className="col-span-2">
+                       <p className="text-sm text-muted-foreground">Team Name</p>
+                       <p>{selectedRegistration.teamName}</p>
+                     </div>
+                   )}
+                   {selectedRegistration.teamDetail && (
+                     <div className="col-span-2">
+                       <p className="text-sm text-muted-foreground">Team Detail</p>
+                       <p>{selectedRegistration.teamDetail}</p>
+                     </div>
+                   )}
                    {selectedRegistration.status === "rejected" && selectedRegistration.rejection_reason && (
                      <div className="col-span-2">
                        <p className="text-sm text-muted-foreground">Rejection Reason</p>
@@ -600,7 +620,19 @@ export function RegistrationsClient({
                        </div>
                      </div>
                    )}
-                    </div>
+                   {selectedRegistration.status === 'approved' && (
+                     <>
+                       <div>
+                         <p className="text-sm text-muted-foreground">Approved At</p>
+                         <p>{selectedRegistration.approvedAt ? format(new Date(selectedRegistration.approvedAt), 'PPP p') : 'N/A'}</p>
+                       </div>
+                       <div className="col-span-2">
+                         <p className="text-sm text-muted-foreground">Approved By</p>
+                         <p>{selectedRegistration.approvedBy || 'Unknown'}</p>
+                       </div>
+                     </>
+                   )}
+                 </div>
                 </div>
             )}
              <DialogFooter className="mt-4">

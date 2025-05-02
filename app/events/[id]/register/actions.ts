@@ -104,25 +104,23 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
     const eventAllowsTeams = (event.max_team_size ?? 1) > 1;
     const isFreeEvent = !event.registration_fee || Number(event.registration_fee) <= 0;
         
-    // 5. Handle Team Logic (only if event allows teams)
+    // 5. Handle Team Logic (only if event allows teams and user chose to join or create a team)
     let teamId: string | null = null;
-    if (eventAllowsTeams && formData.teamStatus === "have-team") {
+    const isTeamParticipant = eventAllowsTeams && (formData.teamStatus === "existing" || formData.teamStatus === "new");
+    if (isTeamParticipant) {
       if (!formData.teamName) {
-        return { success: false, error: "Team name is required when joining with a team." };
+        return { success: false, error: "Team name is required when participating with a team." };
       }
-      
-      // Find or create the team
+      // Find or create the team (findOrCreateTeam will handle both existing and new names)
       const { team, error: teamError } = await findOrCreateTeam(supabase, eventId, formData.teamName, participantId);
       if (teamError || !team) {
         return { success: false, error: teamError || "Failed to process team information." };
       }
       teamId = team.id;
-        
-      // Add participant to the team (if not already creator/member)
-      await ensureTeamMembership(supabase, teamId, participantId);
-
-      // Handle potential invites (logging only for now)
-        if (formData.teamMembers) {
+      // Ensure membership
+      await ensureTeamMembership(supabase, teamId!, participantId);
+      // Handle potential invites for new team members
+      if (formData.teamMembers) {
         handlePotentialInvites(formData.teamMembers, user.email || '');
       }
     }
@@ -137,18 +135,32 @@ export async function registerForEvent(eventId: string, formData: RegistrationFo
     }
 
     // 7. Create the Registration Record with discount information
+    // Determine registration type mapping
+    let regType: string;
+    if (!eventAllowsTeams) {
+      regType = 'solo';
+    } else {
+      // Map UI statuses to DB enum values
+      if (formData.teamStatus === 'existing' || formData.teamStatus === 'new') {
+        regType = 'have-team';
+      } else if (formData.teamStatus === 'looking') {
+        regType = 'looking';
+      } else {
+        regType = 'solo';
+      }
+    }
     const { data: newRegistration, error: registrationError } = await supabase
       .from("registrations")
       .insert({
         event_id: eventId,
         participant_id: participantId,
-        team_id: teamId, // Null if solo or looking
-        registration_type: eventAllowsTeams ? formData.teamStatus : 'solo', // Store how they registered
-        status: "pending", // All registrations require organizer approval
+        team_id: teamId,
+        registration_type: regType,
+        status: "pending",
         payment_status: paymentStatus,
-        discount_amount: formData.discountAmount || 0, // Store the discount amount
-        points_used: formData.pointsUsed || 0, // Store points used
-        final_price: finalPrice, // Store the final price after discount
+        discount_amount: formData.discountAmount || 0,
+        points_used: formData.pointsUsed || 0,
+        final_price: finalPrice,
       })
       .select('id')
       .single();
