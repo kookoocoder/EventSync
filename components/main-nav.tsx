@@ -209,7 +209,7 @@ export function MainNav() {
             initial="closed"
             animate="open"
             exit="closed"
-            className="absolute top-16 inset-x-0 bg-background/95 backdrop-blur-md border-b z-50 py-4 px-6 shadow-lg"
+            className="absolute top-16 inset-x-0 glass-nav border-b z-50 py-4 px-6 shadow-lg"
           >
             <nav className="flex flex-col space-y-3">
               <motion.div variants={mobileItemVariants}>

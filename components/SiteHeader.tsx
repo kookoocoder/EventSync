@@ -66,7 +66,7 @@ export function SiteHeader() {
       initial="hidden"
       animate="visible"
       variants={headerVariants}
-      className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 shadow-sm"
+      className="sticky top-0 z-50 w-full border-b glass-nav"
     >
       <div className="container pl-4 pr-8 mx-auto max-w-7xl flex h-16 items-center justify-between">
         <MainNav />
