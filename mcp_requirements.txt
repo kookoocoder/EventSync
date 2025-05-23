@@ -1,0 +1,20 @@
+# EventSync MCP Server Requirements
+# Install with: pip install -r mcp_requirements.txt
+
+# Core MCP Framework
+mcp[cli]>=1.2.0
+
+# Environment variables support
+python-dotenv>=1.0.0
+
+# Database connectivity (optional - will use mock data if not available)
+supabase>=2.9.0
+
+# Date/time handling
+python-dateutil>=2.8.0
+
+# JSON handling (built-in, but specified for clarity)
+# json - built into Python
+
+# Type hints support
+typing-extensions>=4.0.0 

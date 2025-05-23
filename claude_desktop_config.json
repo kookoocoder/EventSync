@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "eventsync": {
+      "command": "python",
+      "args": [
+        "D:\\Users\\YRM\\Programs\\preetam\\EventSync\\mcp_server.py"
+      ]
+    }
+  }
+}

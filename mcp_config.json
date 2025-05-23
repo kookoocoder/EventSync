@@ -1,0 +1,82 @@
+{
+  "server_info": {
+    "name": "EventSync MCP Server",
+    "version": "1.0.0",
+    "description": "MCP server for EventSync platform providing access to event data",
+    "author": "EventSync Team"
+  },
+  "tools": [
+    {
+      "name": "list_event",
+      "description": "List events with optional filtering by type, status, and limit",
+      "parameters": {
+        "event_type": {
+          "type": "string",
+          "optional": true,
+          "description": "Filter by event type (hackathon, conference, workshop)"
+        },
+        "status": {
+          "type": "string", 
+          "optional": true,
+          "description": "Filter by status (upcoming, live, past)"
+        },
+        "limit": {
+          "type": "integer",
+          "optional": true,
+          "default": 10,
+          "description": "Maximum number of events to return"
+        }
+      }
+    },
+    {
+      "name": "get_event_details",
+      "description": "Get detailed information about a specific event",
+      "parameters": {
+        "event_id": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier of the event"
+        }
+      }
+    }
+  ],
+  "environment": {
+    "required_vars": [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    ],
+    "optional_vars": [],
+    "fallback": "Mock data will be used if Supabase environment variables are not set"
+  },
+  "transport": {
+    "default": "stdio",
+    "supported": ["stdio", "sse"],
+    "sse_endpoint": "/sse",
+    "sse_port": 8080
+  },
+  "usage_examples": [
+    {
+      "description": "List all upcoming hackathons",
+      "tool": "list_event",
+      "parameters": {
+        "event_type": "hackathon",
+        "status": "upcoming",
+        "limit": 5
+      }
+    },
+    {
+      "description": "Get details of a specific event",
+      "tool": "get_event_details", 
+      "parameters": {
+        "event_id": "1"
+      }
+    },
+    {
+      "description": "List recent 3 events",
+      "tool": "list_event",
+      "parameters": {
+        "limit": 3
+      }
+    }
+  ]
+} 
